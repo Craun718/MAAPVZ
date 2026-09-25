@@ -3,7 +3,7 @@ loguru==0.7.3
 maaagentbinary==1.0.1
 maafw==5.10.4
 numpy==2.3.5  
-pillow==11.0.0
+pillow==12.3.0
 strenum==0.4.15      
 win32-setctime==1.2.0
 colorama==0.4.6
