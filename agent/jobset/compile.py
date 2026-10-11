@@ -45,6 +45,18 @@ NODE_END_DETECT = "无尽挑战_收尾"
 NODE_END_RESTART = "无尽挑战_收尾重开"
 NODE_LOOP_CHAIN = CHAIN_NODE_TPL.format(kind=KIND_CN["loop"])
 
+# ★ 2026-10-11 提速改版（v3 布局）：单次链 DSL **直接灌进能量豆识别节点** ——
+#   识别到能量豆的同一帧就出手，砍掉 单次种植/BOSS关种植 两个调度跳。
+#   普通/boss 双变体在准备阶段一次性全灌（各自节点不相交），
+#   boss 的循环链也拆成独立节点，局内识别只负责选路、不再重灌。
+NODE_ENTER_GAME = "无尽挑战_进入到局内"           # 普通关：能量豆识别 + 单次链 DSL
+NODE_ENTER_GAME_BOSS = "无尽挑战_进入到局内_boss"  # boss 关：同上
+NODE_LOOP_CHAIN_BOSS = "无尽挑战_组合动作_循环_boss"  # boss 循环链（pipe 新增壳）
+
+# compiled 块版本号：v3 = 能量豆直灌布局。
+# 旧作业集（无 v 或 v<3）的 compiled 还指着已退役的调度节点 -> 必须重存。
+COMPILED_V = 3
+
 # ★ 误触守卫声明（guard:）：三条链固定带上 —— 动作的触点/滑动路径碰到
 #   「继续挑战 / 返回入口」按钮区时，执行前先识别结算节点，已跳屏就停手跟随 next。
 #   （2026-10-08 实战：收尾链误触继续挑战后，在错误界面空点六千次。）
@@ -349,7 +361,11 @@ def build_fight_override(
 
     override: Dict[str, Any] = {}
 
-    # ---- 1) 三个组合动作节点 ----
+    # ★ v3 布局：单次链灌进「能量豆识别」节点；循环链普通/boss 各一个节点。
+    enter_node = NODE_ENTER_GAME_BOSS if is_boss else NODE_ENTER_GAME
+    loop_chain = NODE_LOOP_CHAIN_BOSS if is_boss else NODE_LOOP_CHAIN
+
+    # ---- 1) 组合动作节点（v3：单次链 = 能量豆节点，循环链按变体分家）----
     #
     # next 结构（顺序 = 优先级，命中第一个就走第一个）：
     #     ["无尽局内_继续挑战",   <- 结算出现了就点它（放第一位，命中即走）
@@ -357,33 +373,36 @@ def build_fight_override(
     #      "无尽挑战_失败",       <- 战斗失败画面 -> 跳失败处理（pipe 用户自接）
     #      <跑完这条链之后去哪>]  <- 没结算也没到最后一波 -> 继续下一环
     #
-    #   单次链 -> 无尽局内_循环种植
-    #   循环链 -> 自己（自循环）
+    #   单次链（能量豆节点）-> 本变体的循环链节点
+    #   循环链 -> 自己（自循环；loops 收尾模式 -> 循环计数门）
     #   收尾链 -> 「收尾超时后动作」（sub/restart），没有收尾检测位
-    if once_node:
-        nxt = [REF_SETTLE]
-        if has_end and not loops_gate:
-            nxt.append(NODE_END_DETECT)
-        nxt.append(REF_FAILED)
-        nxt.append(NODE_LOOP_ENTRY)
-        override[once_node["node"]] = {
-            "action": "Custom",
-            "custom_action": "BatchSwipe",
-            "custom_action_param": once_node["dsl"],
-            "pre_delay": 0,
-            "post_delay": 0,
-            "next": nxt,
-        }
+    #
+    # ★ 单次链为空（boss 未配置等）：灌 sleep:5 占位 —— 能量豆节点空跑一拍
+    #   5 秒再进循环等结算，语义与旧「单次种植 -> 空循环」一致。
+    once_dsl = once_node["dsl"] if once_node else EMPTY_LOOP_DSL
+    nxt = [REF_SETTLE]
+    if has_end and not loops_gate:
+        nxt.append(NODE_END_DETECT)
+    nxt.append(REF_FAILED)
+    nxt.append(loop_chain)
+    override[enter_node] = {
+        "action": "Custom",
+        "custom_action": "BatchSwipe",
+        "custom_action_param": once_dsl,
+        "pre_delay": 0,
+        "post_delay": 0,
+        "next": nxt,
+    }
 
     if loop_node:
         nxt = [REF_SETTLE]
         if has_end and not loops_gate:
             nxt.append(NODE_END_DETECT)
         nxt.append(REF_FAILED)
-        # ★ loops 收尾：自循环改走循环入口（JobSetFight 数次数，数够 N 掰向收尾链）；
+        # ★ loops 收尾：自循环改走循环计数门（JobSetFight 数次数，数够 N 掰向收尾链）；
         #   detect 收尾：直接自循环（省一道工序）。
-        nxt.append(NODE_LOOP_ENTRY if loops_gate else loop_node["node"])
-        override[loop_node["node"]] = {
+        nxt.append(NODE_LOOP_ENTRY if loops_gate else loop_chain)
+        override[loop_chain] = {
             "action": "Custom",
             "custom_action": "BatchSwipe",
             "custom_action_param": loop_node["dsl"],
@@ -398,9 +417,9 @@ def build_fight_override(
         if has_end and not loops_gate:
             nxt.append(NODE_END_DETECT)
         nxt.append(REF_FAILED)
-        # loops 收尾同样改走循环入口（空循环也要数次数）
-        nxt.append(NODE_LOOP_ENTRY if loops_gate else NODE_LOOP_CHAIN)
-        override[NODE_LOOP_CHAIN] = {
+        # loops 收尾同样改走循环计数门（空循环也要数次数）
+        nxt.append(NODE_LOOP_ENTRY if loops_gate else loop_chain)
+        override[loop_chain] = {
             "action": "Custom",
             "custom_action": "BatchSwipe",
             "custom_action_param": EMPTY_LOOP_DSL,
@@ -421,11 +440,11 @@ def build_fight_override(
         if end_after_action == "restart":
             after = [NODE_END_RESTART]
         elif end_sub_action == "once":
-            after = [NODE_ONCE_ENTRY]
+            after = [NODE_ENTER_GAME]   # v3：单次链在能量豆节点上
         elif end_sub_action == "end":
             after = [NODE_END_DETECT]
         else:
-            after = [NODE_LOOP_ENTRY]
+            after = [loop_chain]
         if end_after_action == "settle":
             end_next = [REF_SETTLE, REF_FAILED]
             # ★ 只覆写 timeout 一个字段（next 等沿用 pipe/任务选项，别整体替换 ——
@@ -443,30 +462,21 @@ def build_fight_override(
             "next": end_next,
         }
 
-    # ---- 2) 链首节点：各自指向自己的那条链 ----
-    once_next = [once_node["node"]] if once_node else [NODE_LOOP_ENTRY]
-    # ★ 循环链为空也要进 —— 上面的 override 已经把它写成了
-    #   「sleep:5 空动作 + 自循环等待结算」，所以这里永远指向它。
-    #   以前是 loop_node 为 None 就给空 next -> 链断 -> Task.Failed
-    #   （表现为「一到循环种植就停了」）。
-    loop_next = [NODE_LOOP_CHAIN]
-
-    override[NODE_ONCE_ENTRY] = {
-        "action": "Custom",
-        "custom_action": "JobSetFight",
-        "custom_action_param": {},          # 空 -> 由 state 决定
-        "pre_delay": 0,
-        "post_delay": 0,
-        "next": once_next,
-    }
-    override[NODE_LOOP_ENTRY] = {
-        "action": "Custom",
-        "custom_action": "JobSetFight",
-        "custom_action_param": {},          # 空 -> 由 state 决定
-        "pre_delay": 0,
-        "post_delay": 0,
-        "next": loop_next,
-    }
+    # ---- 2) 循环计数门（仅 loops 收尾模式的普通关需要）----
+    #
+    # ★ v3：调度入口节点（单次种植/循环种植）已退役 —— 单次链直灌能量豆节点、
+    #   循环链自循环。只有 loops 收尾模式还需要「循环种植」当计数门：
+    #   循环链每圈回来进一次门，JobSetFight（计数门模式）数满 N 圈把
+    #   next 掰向收尾链。
+    if loops_gate:
+        override[NODE_LOOP_ENTRY] = {
+            "action": "Custom",
+            "custom_action": "JobSetFight",
+            "custom_action_param": {"计数门": True},   # 只数圈，不重灌
+            "pre_delay": 0,
+            "post_delay": 0,
+            "next": [loop_chain],
+        }
 
     # ---- 3) 收尾检测节点：检测到最后一波 -> 执行收尾链 -> 等结算 ----
     #
@@ -478,29 +488,33 @@ def build_fight_override(
     # override_pipeline 是深合并：这里只改 enabled / next / post_delay，
     # 识别配置（recognition=TemplateMatch / template / roi / green_mask）
     # 沿用 pipeline 里 03-1-01 写死的值。
-    if has_end and not loops_gate:
-        override[NODE_END_DETECT] = {
-            "enabled": True,
-            "post_delay": end_post_delay,
-            "next": [end_node["node"]],
-        }
-    else:
-        # ★ loops 收尾：不识别僵尸头像（检测节点关停，改由循环计数门进收尾）
-        override[NODE_END_DETECT] = {"enabled": False}
+    #
+    # ★ v3：boss 变体**完全不写**收尾节点（boss 关本来就没有收尾）——
+    #   双变体合并灌注时，boss 的 enabled:False 会把普通变体的收尾配置顶掉。
+    if not is_boss:
+        if has_end and not loops_gate:
+            override[NODE_END_DETECT] = {
+                "enabled": True,
+                "post_delay": end_post_delay,
+                "next": [end_node["node"]],
+            }
+        else:
+            # ★ loops 收尾：不识别僵尸头像（检测节点关停，改由循环计数门进收尾）
+            override[NODE_END_DETECT] = {"enabled": False}
 
-    # ---- 4) 收尾重开节点：**已 pipe 化，运行时只管 enabled** ----
-    #
-    # 「无尽挑战_收尾重开」现在是一个纯 pipe 节点（03-1-01）：
-    #     next   = ["通用_重开_暂停"]
-    #     anchor = {"下一个动作": "无尽挑战_识别开始战斗_清空卡牌"}
-    # 重开完靠 [Anchor]下一个动作 回到锚点直接开局。
-    #
-    # 壳节点在 pipeline 里是 enabled=false（避免没配收尾链时参与识别），
-    # 只有作业集选了「重开」且配了收尾链时才启用。
-    if has_end and end_after_action == "restart":
-        override[NODE_END_RESTART] = {"enabled": True}
-    else:
-        override[NODE_END_RESTART] = {"enabled": False}
+        # ---- 4) 收尾重开节点：**已 pipe 化，运行时只管 enabled** ----
+        #
+        # 「无尽挑战_收尾重开」现在是一个纯 pipe 节点（03-1-01）：
+        #     next   = ["通用_重开_暂停"]
+        #     anchor = {"下一个动作": "无尽挑战_识别开始战斗_清空卡牌"}
+        # 重开完靠 [Anchor]下一个动作 回到锚点直接开局。
+        #
+        # 壳节点在 pipeline 里是 enabled=false（避免没配收尾链时参与识别），
+        # 只有作业集选了「重开」且配了收尾链时才启用。
+        if has_end and end_after_action == "restart":
+            override[NODE_END_RESTART] = {"enabled": True}
+        else:
+            override[NODE_END_RESTART] = {"enabled": False}
 
     return override, chain_nodes
 
@@ -544,7 +558,8 @@ def compile_jobset(raw: Dict[str, Any], log: LogFn = _noop) -> Dict[str, Any]:
     out["format"] = 2
 
     for i, t in enumerate(js.tables):
-        compiled = {}
+        # ★ v3 布局标记：runtime 认版本灌注，旧 compiled（无 v）会被要求重存
+        compiled = {"v": COMPILED_V}
         for variant, is_boss in (("normal", False), ("boss", True)):
             ov, _chains = build_fight_override(
                 t, is_boss, coords, every_n,
@@ -562,7 +577,6 @@ def compile_jobset(raw: Dict[str, Any], log: LogFn = _noop) -> Dict[str, Any]:
                     kinds.append(f"{node}({len([x for x in d.split(';') if x.strip()])}动作)")
             log(f"  表{t.index + 1} [{variant}] {len(ov)} 节点: "
                 + (", ".join(kinds) if kinds else "(无动作节点)"))
-
     # 确保 JSON 可序列化（compile 产物全是 dict/list/str/int/bool，这里只是兜底）
     _json.dumps(out, ensure_ascii=False)
     return out

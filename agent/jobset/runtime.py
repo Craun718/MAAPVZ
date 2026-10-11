@@ -134,6 +134,9 @@ def _prewarm_for_level(context: Context, js: JobSet, lv: int) -> None:
     #   预热可能被调两次（Load / AutoCount），走签名会被第二次还原，必须 force。
     _inject_artifact(context, table, _pw_boss, lineup_changed=True, force=True)
 
+    # ★ v3：种植链也在预热时灌好（能量豆节点直灌，出手零中转）。
+    _inject_fight(context, table)
+
     # ★ 回写「当前关卡」focus：MFA 界面显示的关卡号来自这两个节点的 focus，
     #   而 focus 平时只有 JobSetPlan（过关计数时）才写 —— 打完 149 开新一轮时
     #   自动计数把计数器重置成 1，但 focus 不还就继续显示旧的 149
@@ -153,6 +156,39 @@ def _ensure_tracker(param: Dict[str, Any]) -> LevelTracker:
         _STATE["tracker"] = tr
         _log("计数器已初始化")
     return tr
+
+
+def _inject_fight(context: Context, table) -> bool:
+    """★ v3：把本表的种植链**提前**灌进 pipeline（准备阶段调用）。
+
+    布局（compile.py build_fight_override 产物）：
+      · 单次链 -> 直接灌在「能量豆识别」节点上（普通=进入到局内 /
+        boss=进入到局内_boss），识别命中的同一帧就出手，零调度中转；
+      · 循环链 -> 普通/boss 各自独立节点（组合动作_循环 / _boss）；
+      · 两个变体一次全灌，节点不相交 -> 局内僵王头识别只负责**选路**，
+        发现 boss 不再需要重灌（补救重灌随 v3 布局自然消失）。
+
+    表级注入：同表连关不重复灌（跟着 _apply_table 的换表时机走）。
+    附带把补给 next 一并应用（原来由 JobSetFight 每关做）。
+    """
+    compiled = table.raw.get("compiled")
+    if not isinstance(compiled, dict) or compiled.get("v") != 3:
+        _log("❌ 作业集 compiled 块缺失或版本过旧（需要 v3）—— "
+             "请用编辑器打开该作业集重新保存一次")
+        return False
+    merged: Dict[str, Any] = {}
+    for variant in ("normal", "boss"):
+        ov = compiled.get(variant)
+        if isinstance(ov, dict) and ov:
+            merged.update(ov)
+    try:
+        context.override_pipeline(merged)
+        _log(f"已灌注种植链（表{table.index + 1}，{len(merged)} 节点，普通+boss 双变体）")
+    except Exception as e:
+        _log(f"灌注种植链失败（{type(e).__name__}: {e}）")
+        return False
+    JobSetFight._apply_supply(context, table)
+    return True
 
 
 _LEVEL_TEXT_RE = re.compile(r"(\d+)")
@@ -1178,6 +1214,40 @@ class JobSetFight(CustomAction):
         rules = table.rules(is_boss)
         kind_cn = "BOSS关" if is_boss else "普通关"
 
+        # ---- 计数门模式（v3：loops 收尾的专用入口，只数圈不重灌）----
+        #
+        # loops 收尾模式下循环链每圈回「无尽局内_循环种植」进一次门：
+        #   进门发生在该圈**之前**：第 k 次进门 -> 接下来跑第 k 圈。
+        #   数到 N+1 次进门（= 第 N 圈刚跑完）时，把本节点 next 从
+        #   「组合动作_循环」掰成「组合动作_收尾」，即「循环 N 次后进收尾」。
+        # 计数按 (表, 关卡) 键控：换关/换表自动清零；掰向收尾后清零，
+        # 这样「收尾超时后动作=子动作=循环动作」回来时会重新数。
+        if param.get("计数门"):
+            end_node_name = CHAIN_NODE_TPL.format(kind=KIND_CN["end"])
+            _compiled_n = (table.raw.get("compiled") or {}).get("normal") or {}
+            if end_node_name in _compiled_n:
+                try:
+                    n_max = int(table.raw.get("endLoopCount") or 3)
+                except (TypeError, ValueError):
+                    n_max = 3
+                n_max = max(1, n_max)
+                gate_key = f"{table.index}@{lv}"
+                if _STATE.get("loop_gate_key") != gate_key:
+                    _STATE["loop_gate_key"] = gate_key
+                    _STATE["loop_gate_cnt"] = 0
+                cnt = int(_STATE.get("loop_gate_cnt") or 0) + 1
+                _STATE["loop_gate_cnt"] = cnt
+                if cnt > n_max:
+                    try:
+                        context.override_pipeline(
+                            {"无尽局内_循环种植": {"next": [end_node_name]}}
+                        )
+                        _log(f"循环链已重复 {n_max} 次 -> 进收尾链（不识别收尾）")
+                    except Exception as e:
+                        _log(f"收尾计数门注入失败（{type(e).__name__}: {e}）")
+                    _STATE["loop_gate_cnt"] = 0   # 进收尾即清零，回循环时重新数
+            return _ok()
+
         if prev_index is None:
             # ★ 首次锁定表：这次是「首次进关」，直接按识别结果选表开种，
             #   不算换阵容、不重开。JobSetLoad 故意把 table_index 留成 None
@@ -1289,42 +1359,9 @@ class JobSetFight(CustomAction):
             _log(f"注入失败（{type(e).__name__}: {e}）")
             return _fail()
 
-        # ---- 3.5) 收尾类型=循环链重复次数：循环入口计数门 ----
-        #
-        # 结构（compile.build_fight_override 已铺好）：loops 模式下循环链的
-        # 自循环改指回本入口（无尽局内_循环种植 = 本节点），所以每一圈都会经过这里。
-        # 进门发生在该圈**之前**：第 k 次进门 -> 接下来跑第 k 圈。
-        # 所以数到 N+1 次进门（= 第 N 圈刚跑完）时，把本节点 next 从
-        # 「组合动作_循环」掰成「组合动作_收尾」，即实现「循环 N 次后直接进收尾」。
-        # 计数按 (表, 关卡) 键控：换关/换表自动清零；掰向收尾后清零，
-        # 这样「收尾超时后动作=子动作=循环动作」回来时会重新数。
-        # （detect 模式循环链直接自循环、不经过这里，零开销。）
-        if str(table.raw.get("endType") or "detect").strip() == "loops" and not is_boss \
-                and getattr(argv, "node_name", "") == "无尽局内_循环种植":
-            # ★ 只有「循环种植」入口才计数：单次种植入口也是 JobSetFight，
-            #   不区分的话开局那次进门会被误算成一圈。
-            end_node_name = CHAIN_NODE_TPL.format(kind=KIND_CN["end"])
-            if end_node_name in override:
-                try:
-                    n_max = int(table.raw.get("endLoopCount") or 3)
-                except (TypeError, ValueError):
-                    n_max = 3
-                n_max = max(1, n_max)
-                gate_key = f"{table.index}@{lv}"
-                if _STATE.get("loop_gate_key") != gate_key:
-                    _STATE["loop_gate_key"] = gate_key
-                    _STATE["loop_gate_cnt"] = 0
-                cnt = int(_STATE.get("loop_gate_cnt") or 0) + 1
-                _STATE["loop_gate_cnt"] = cnt
-                if cnt > n_max:
-                    try:
-                        context.override_pipeline(
-                            {"无尽局内_循环种植": {"next": [end_node_name]}}
-                        )
-                        _log(f"循环链已重复 {n_max} 次 -> 进收尾链（不识别收尾）")
-                    except Exception as e:
-                        _log(f"收尾计数门注入失败（{type(e).__name__}: {e}）")
-                    _STATE["loop_gate_cnt"] = 0   # 进收尾即清零，回循环时重新数
+        # ---- 3.5) 收尾计数门已前置为「计数门」模式（见 run() 上半段）----
+        #   v3 布局下循环种植节点只在 loops 收尾模式被接线，
+        #   走到这里的一定是老 param（{}）—— 旧调度路径已随能量豆直灌退役。
 
         # ---- 补给选取：一并覆盖（见 _apply_supply）----
         self._apply_supply(context, table)
@@ -1589,21 +1626,9 @@ class JobSetStage(CustomAction):
 
         _log(f"阶段确认完成：{reason or '维持当前表'} -> 表{table.index + 1}")
 
-        # 把 boss 判定结果也准备好，供下游 JobSetFight 使用
-        try:
-            context.override_pipeline({
-                "无尽局内_BOSS关种植": {
-                    "custom_action_param": {"是boss关": True, "关卡": lv}
-                },
-                "无尽局内_单次种植": {
-                    "custom_action_param": {"是boss关": False, "关卡": lv}
-                },
-                "无尽局内_循环种植": {
-                    "custom_action_param": {"是boss关": False, "关卡": lv}
-                },
-            })
-        except Exception as e:
-            _log(f"同步关卡到种植节点失败（{type(e).__name__}: {e}）")
+        # ★ v3：原「同步关卡到 单次种植/循环种植/BOSS关种植」的覆盖块已删除 ——
+        #   三个调度节点已退役（单次链直灌能量豆节点，准备阶段双变体预灌），
+        #   boss 发现后的链修正随布局自然消失，无需重灌。
 
         return _ok()
 
@@ -1629,6 +1654,8 @@ class JobSetStage(CustomAction):
             _inject_lineup(context, table, is_boss)
             _log(f"已切换到表{table.index + 1}："
                  f"选卡植物={table.eff_plants(is_boss)}（{'boss 关' if is_boss else '普通关'}）")
+            # ★ v3：换表 = 种植链也要换（表级注入，跟着换表时机走）
+            _inject_fight(context, table)
             # ★ 记录「当前已注入的表」——给 JobSetPlan 判断表有没有变
             _STATE["plan_table_index"] = table.index
             return True
