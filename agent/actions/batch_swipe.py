@@ -17,7 +17,7 @@ except Exception:
     _DIRECT_RECOGNITION = False
 
 # 加载标记：用于确认 MAA 代理实际加载的版本（重载插件后应看到本行）
-print("[BatchSwipe] batch_swipe.py 已加载 · 版本 v19（watch/ref/gateref(定点守卫)/guard(触点或滑动路径进区域先识别节点)/roi(键名)/every(N或block,块末识别)/fixed(N或block,含多指)/固定动作前先识别/权重@N/异步组{!…}/附属块attach/多指动作multi/无间隔块「」/连击*n/断点续做(动作级·顺序块级·只在本次任务内)）")
+print("[BatchSwipe] batch_swipe.py 已加载 · 版本 v20（新增开头不识别|watch/ref/gateref(定点守卫)/guard(触点或滑动路径进区域先识别节点)/roi(键名)/every(N或block,块末识别)/fixed(N或block,含多指)/固定动作前先识别/权重@N/异步组{!…}/附属块attach/多指动作multi/无间隔块「」/连击*n/断点续做(动作级·顺序块级·只在本次任务内)）")
 
 
 @AgentServer.custom_action("BatchSwipe")
@@ -340,7 +340,9 @@ guard:节点A|节点B@@roi:盒1|盒2 —— 区域守卫声明：click/swipe/mul
                 continue
             if ':' not in cmd:
                 low = cmd.strip().lower()
-                if low in ('resume', 'reset'):
+                # ★ 开头不识别：跳过执行前的识别轮（编译器只塞给单次链——
+                #   能量豆命中=铁定在局内，开头再认一遍守卫/失败纯浪费）
+                if low in ('resume', 'reset', '开头不识别'):
                     actions.append({'type': low})
                     continue
                 print(f"[BatchSwipe] 无效的命令: {cmd}")
@@ -1637,6 +1639,10 @@ guard:节点A|节点B@@roi:盒1|盒2 —— 区域守卫声明：click/swipe/mul
         watch_every, watch_block_end = self._collect_every(actions)
         fixed_act = self._collect_fixed(actions)
         attach_actions, attach_every, attach_mode, attach_start = self._collect_attach(actions)
+        # ★ 「开头不识别」标记：跳过下方 watch_triggers 的开始前识别轮
+        skip_first_watch = any(
+            isinstance(a, dict) and str(a.get('type', '')).lower() == '开头不识别'
+            for a in actions)
         # ★ guard 守卫声明（触点/滑动路径进区域 -> 动作前先识别节点）
         guards = [a for a in actions
                   if isinstance(a, dict) and str(a.get('type', '')).lower() == 'guard']
@@ -1657,7 +1663,7 @@ guard:节点A|节点B@@roi:盒1|盒2 —— 区域守卫声明：click/swipe/mul
             attach_start = (_seen + 1) if _seen > 0 else 1
         actions = [
             a for a in actions
-            if not (isinstance(a, dict) and str(a.get('type', '')).lower() in ('watch', 'ref', 'roi', 'every', 'resume', 'reset', 'fixed', 'attach', 'attach_every', 'attach_mode', 'attach_start', 'guard'))
+            if not (isinstance(a, dict) and str(a.get('type', '')).lower() in ('watch', 'ref', 'roi', 'every', 'resume', 'reset', 'fixed', 'attach', 'attach_every', 'attach_mode', 'attach_start', 'guard', '开头不识别'))
         ]
         fixed_every = int(fixed_act.get('every', 1)) if fixed_act else 0
         # 固定动作的两种触发方式：every = 每 N 个动作；block = 每个顺序块结束后
@@ -1767,7 +1773,8 @@ guard:节点A|节点B@@roi:盒1|盒2 —— 区域守卫声明：click/swipe/mul
             return True
 
         # 若配置了识别触发，执行前先识别一次（屏幕当前已命中则直接停止，不做任何动作）
-        if watch_triggers and self._watch_check(context, controller, watch_triggers, watch_rois):
+        # ★ 「开头不识别」声明时跳过这轮（单次链：能量豆命中即出手，开局不可能有结算）
+        if watch_triggers and not skip_first_watch and self._watch_check(context, controller, watch_triggers, watch_rois):
             print("[BatchSwipe] 🔍 开始前即识别到命中内容，停止本次批量，跟随当前节点 next 列表执行")
             return True
 

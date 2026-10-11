@@ -379,7 +379,10 @@ def build_fight_override(
     #
     # ★ 单次链为空（boss 未配置等）：灌 sleep:5 占位 —— 能量豆节点空跑一拍
     #   5 秒再进循环等结算，语义与旧「单次种植 -> 空循环」一致。
-    once_dsl = once_node["dsl"] if once_node else EMPTY_LOOP_DSL
+    # ★ 开头不识别：单次链跳过 BatchSwipe 的开始前识别轮 —— 能量豆刚命中，
+    #   画面铁定在局内，再认一遍守卫/失败纯浪费 300-400ms。
+    #   循环/收尾链不加：回圈时结算可能真出现，开头识别是它们的出路口。
+    once_dsl = "开头不识别;" + (once_node["dsl"] if once_node else EMPTY_LOOP_DSL)
     nxt = [REF_SETTLE]
     if has_end and not loops_gate:
         nxt.append(NODE_END_DETECT)
