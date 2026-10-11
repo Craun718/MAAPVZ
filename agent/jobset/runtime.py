@@ -90,8 +90,10 @@ def _parse_param(raw: Any) -> Dict[str, Any]:
     return {}
 
 
-def _prewarm_for_level(context: Context, js: JobSet, lv: int) -> None:
-    """按关卡 lv 预热选卡 / 编队注入（JobSetLoad 与 JobSetAutoCount 共用）。
+def _prewarm_for_level(context: Context, js: JobSet, lv: int) -> bool:
+    """按关卡 lv 预热选卡 / 编队 / 种植链注入（JobSetLoad 与 JobSetAutoCount 共用）。
+
+    返回 False = 种植链灌注失败（老格式 compiled），调用方决定要不要 fail-fast。
 
     ★ 故意**不锁表**（不动 table_index）：「本关用哪张表」的最终决定权
       在 JobSetStage / JobSetFight（它们才知道是不是 boss 关、换阵走到哪）。
@@ -135,7 +137,8 @@ def _prewarm_for_level(context: Context, js: JobSet, lv: int) -> None:
     _inject_artifact(context, table, _pw_boss, lineup_changed=True, force=True)
 
     # ★ v3：种植链也在预热时灌好（能量豆节点直灌，出手零中转）。
-    _inject_fight(context, table)
+    #   灌不进去（老 compiled）= 整条任务必然空转 -> 让调用方决定 fail-fast。
+    return _inject_fight(context, table)
 
     # ★ 回写「当前关卡」focus：MFA 界面显示的关卡号来自这两个节点的 focus，
     #   而 focus 平时只有 JobSetPlan（过关计数时）才写 —— 打完 149 开新一轮时
@@ -1015,7 +1018,10 @@ class JobSetLoad(CustomAction):
         #   （若流程走了「无尽挑战_自动计数」，它识别出主界面关卡号后会
         #   再调一次预热，把这里可能不准的预热纠正过来。）
         lv = tr.count if tr.count > 0 else 1
-        _prewarm_for_level(context, js, lv)
+        # ★ v3：灌注失败（老格式 compiled）= 链必然空转 -> 直接 fail-fast，
+        #   让用户马上去重存作业集，而不是开局后静默空跑。
+        if not _prewarm_for_level(context, js, lv):
+            return _fail()
 
         # ---- 无尽局外 80 选卡（作业集级 outer_pick -> 80 选卡 custom 节点）----
         _apply_outer_pick(context, js)
@@ -1081,7 +1087,9 @@ class JobSetAutoCount(CustomAction):
 
         js: Optional[JobSet] = _STATE.get("jobset")
         if js is not None:
-            _prewarm_for_level(context, js, tr.count)
+            if not _prewarm_for_level(context, js, tr.count):
+                _log("⚠️ 预热灌注失败（见上）——链节点会是占位空动作，"
+                     "请重存作业集后重新开始任务")
         else:
             _log("⚠️ 作业集未载入（JobSetLoad 未执行？）-> 只设了计数器，没做预热")
         return _ok()
@@ -1224,6 +1232,7 @@ class JobSetFight(CustomAction):
         # 这样「收尾超时后动作=子动作=循环动作」回来时会重新数。
         if param.get("计数门"):
             end_node_name = CHAIN_NODE_TPL.format(kind=KIND_CN["end"])
+            loop_node_name = CHAIN_NODE_TPL.format(kind=KIND_CN["loop"])
             _compiled_n = (table.raw.get("compiled") or {}).get("normal") or {}
             if end_node_name in _compiled_n:
                 try:
@@ -1237,14 +1246,21 @@ class JobSetFight(CustomAction):
                     _STATE["loop_gate_cnt"] = 0
                 cnt = int(_STATE.get("loop_gate_cnt") or 0) + 1
                 _STATE["loop_gate_cnt"] = cnt
-                if cnt > n_max:
-                    try:
-                        context.override_pipeline(
-                            {"无尽局内_循环种植": {"next": [end_node_name]}}
-                        )
+                # ★ 每次进门都重写 next（不能只掰不掰回）：
+                #   掰向收尾后 next 是粘滞的，同表连关不会重灌种植链，
+                #   下一关进门时若 next 还指着收尾 -> 第一圈就直奔收尾链。
+                #   （旧设计每次进门都全量注入、顺带把 next 写回循环链，
+                #     计数门模式没有这一步，必须自己写回。）
+                want = end_node_name if cnt > n_max else loop_node_name
+                try:
+                    context.override_pipeline(
+                        {"无尽局内_循环种植": {"next": [want]}}
+                    )
+                    if cnt > n_max:
                         _log(f"循环链已重复 {n_max} 次 -> 进收尾链（不识别收尾）")
-                    except Exception as e:
-                        _log(f"收尾计数门注入失败（{type(e).__name__}: {e}）")
+                except Exception as e:
+                    _log(f"收尾计数门注入失败（{type(e).__name__}: {e}）")
+                if cnt > n_max:
                     _STATE["loop_gate_cnt"] = 0   # 进收尾即清零，回循环时重新数
             return _ok()
 
@@ -1654,8 +1670,10 @@ class JobSetStage(CustomAction):
             _inject_lineup(context, table, is_boss)
             _log(f"已切换到表{table.index + 1}："
                  f"选卡植物={table.eff_plants(is_boss)}（{'boss 关' if is_boss else '普通关'}）")
-            # ★ v3：换表 = 种植链也要换（表级注入，跟着换表时机走）
-            _inject_fight(context, table)
+            # ★ v3：换表 = 种植链也要换（表级注入，跟着换表时机走）。
+            #   灌不进去（老 compiled）-> 注入整体判失败，调用方会告警。
+            if not _inject_fight(context, table):
+                return False
             # ★ 记录「当前已注入的表」——给 JobSetPlan 判断表有没有变
             _STATE["plan_table_index"] = table.index
             return True
