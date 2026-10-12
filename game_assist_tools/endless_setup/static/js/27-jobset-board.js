@@ -1020,7 +1020,7 @@ let _stepCfgCtx = null;   // { which, st } —— 弹窗服务的那一步
 
 function jobGetSwipeMs() {
     const v = +(jobMeta && jobMeta.swipeMs);
-    return (Number.isFinite(v) && v >= 10) ? Math.floor(v) : 80;
+    return (Number.isFinite(v) && v >= 0) ? Math.floor(v) : 80;
 }
 
 // 这一步的「调配参数」该显示什么
@@ -1197,7 +1197,7 @@ function jobRenderStepCfgParams() {
             function (v) { return '⚙ 连击间隔 = ' + v + 'ms'; });
         mkComboWatch(st);
         if (kind === 'swipeable') {
-            bindInt(mkRow('滑动时长', 'ms（作业集级默认，所有滑动共用）'), 10, 5000, jobGetSwipeMs(),
+            bindInt(mkRow('滑动时长', 'ms（作业集级默认，所有滑动共用；0 = 瞬滑）'), 0, 5000, jobGetSwipeMs(),
                 function (v) { jobMeta.swipeMs = v; jobSaveLocal(); },
                 function (v) { return '⚙ 默认滑动时长 = ' + v + 'ms'; });
             mkTip('连击只作用于这一步，块上显示 ×N；滑动时长是作业集级默认参数；动作间隔固定 0.1s，不可调。');

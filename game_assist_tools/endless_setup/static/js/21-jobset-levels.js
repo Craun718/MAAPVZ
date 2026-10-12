@@ -29,10 +29,12 @@ function jobFillForm() {
 // ============================================================
 // ★「boss 关」阵容下拉：数据驱动重构（2026-10-03 第二轮）
 //   读当前表两个棋盘的槽位植物数据（jobBossSlotsDiffer）：
-//     · 一致   -> 只显示「沿用普通关」（mode 锁定 ''）；
-//                悬停提示「槽位的设置沿用普通关」。
-//     · 不一致 -> 自动出现切换阵容选项，且只提供「单独选卡 / 切换编队」
-//                （没有「沿用」——数据已经不一样了）；mode 自动落到 plants。
+//     · 一致   -> 显示「沿用普通关」+「切换编队」；
+//     · 不一致 -> 显示「单独选卡」+「切换编队」（没有「沿用」——数据已经不一样了），
+//                mode 自动落到 plants。
+//   ★ 「切换编队」两种状态都给（2026-10-12）：换编队不需要改 boss 槽位 ——
+//     同阵容（槽位完全一致）也要能选 boss 换编队，否则保存出来 mode=''
+//     -> boss 关依旧走选卡。mode='deck' 本身也算「不一致」（见下）。
 //   ★ 例外：mode='deck'（boss 切编队）本身就算「不一致」——
 //     编队模式不需要槽位覆盖，若只按槽位判断会把已存的编队模式静默抹掉。
 //     编队想退回沿用：先切「单独选卡」，槽位一致时会自动落回「沿用普通关」。
@@ -47,9 +49,11 @@ function jobRefreshBossLineupUI() {
     const state = differ ? 'differ' : 'same';
     // 选项集合只在状态变化时重建（不打断用户正在下拉的操作）
     if (sel.dataset.bossState !== state) {
+        // ★ 「切换编队」两个状态都给：换编队不需要改 boss 槽位，
+        //   同阵容（槽位完全一致）选 boss 换编队是合法需求。
         sel.innerHTML = differ
             ? '<option value="plants">单独选卡</option><option value="deck">切换编队</option>'
-            : '<option value="">沿用普通关</option>';
+            : '<option value="">沿用普通关</option><option value="deck">切换编队</option>';
         sel.dataset.bossState = state;
     }
     if (!differ) {
@@ -62,7 +66,7 @@ function jobRefreshBossLineupUI() {
     if (lab) {
         lab.setAttribute('data-tooltip', differ
             ? 'boss 关槽位与普通关不一致：单独选卡 = boss 关用自己的槽位重新选卡；切换编队 = boss 关切到指定编队（编队想退回沿用：先切「单独选卡」）'
-            : '槽位的设置沿用普通关（到 boss 棋盘给某个槽换植物或点 ✕ 删除后，这里会自动出现换卡/编队选项）');
+            : '槽位沿用普通关（切换编队随时可选、不需要改槽位；到 boss 棋盘给某个槽换植物或点 ✕ 删除后，这里会多出「单独选卡」选项）');
     }
     const bdbx = document.getElementById('tfBossDeckBox');
     if (bdbx) bdbx.style.display = (t.bossLineupMode === 'deck') ? 'inline-flex' : 'none';

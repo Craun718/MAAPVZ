@@ -278,7 +278,7 @@ function jobApplyLoaded(job, code) {
     // 作业集级参数：识别速率 / 调配参数（缺省回落默认值）
     jobMeta.everyN = (Number.isFinite(+job.everyN) && +job.everyN >= 1)
         ? Math.floor(+job.everyN) : JOB_EVERY_DEFAULT;
-    jobMeta.swipeMs = (Number.isFinite(+job.swipeMs) && +job.swipeMs >= 10)
+    jobMeta.swipeMs = (Number.isFinite(+job.swipeMs) && +job.swipeMs >= 0)
         ? Math.floor(+job.swipeMs) : 80;
     jobTables = Array.isArray(job.tables) ? job.tables : [];
     jobTables.forEach(function (t) {

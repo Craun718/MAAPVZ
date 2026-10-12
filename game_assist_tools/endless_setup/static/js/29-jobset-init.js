@@ -103,7 +103,7 @@ function jobLoadLocal() {
         jobMeta.everyN = (Number.isFinite(+m.everyN) && +m.everyN >= 1)
             ? Math.floor(+m.everyN) : JOB_EVERY_DEFAULT;
         // 调配参数（步骤设置弹窗）；旧数据没有 -> 默认 80ms
-        jobMeta.swipeMs = (Number.isFinite(+m.swipeMs) && +m.swipeMs >= 10)
+        jobMeta.swipeMs = (Number.isFinite(+m.swipeMs) && +m.swipeMs >= 0)
             ? Math.floor(+m.swipeMs) : 80;
         if (Array.isArray(m.worlds)) {
             document.querySelectorAll('#jobWorlds input').forEach(cb => { cb.checked = m.worlds.includes(cb.value); });
