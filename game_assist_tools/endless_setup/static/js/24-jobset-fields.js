@@ -177,14 +177,16 @@ function jobCustomIdentity(s) {
 
 // ★ 「滑飞弹」：固定两点滑动（坐标表「滑飞弹点位1」->「滑飞弹点位2」）。
 //   comboWatchOff = 插入时默认「原子连击」（连击中途不参与识别）；
-//   次数/滑动时长走 params 声明系统（chip 内联编辑自动跟随）。
+//   次数走 params 声明（chip 内联编辑自动跟随）；
+//   ★ 滑动时长**跟随作业集级「调配参数」的滑动时长**（不给独立 ms 参数 ——
+//     独立 ms 会和全局调配参数不一致，用户当 bug 报了）；
+//     老段上残留的 ms 字段仍会被后端当单步覆盖使用（向后兼容）。
 const JOB_MISSILE_ACTION = {
     id: 'missile', name: '滑飞弹', icon: '🚀', img: '',
-    desc: '从「滑飞弹点位1」滑到「滑飞弹点位2」，默认连击 20 次（原子连击，中途不识别）',
+    desc: '从「滑飞弹点位1」滑到「滑飞弹点位2」，默认连击 20 次（原子连击，中途不识别；时长跟随调配参数）',
     comboWatchOff: true,
     params: [
-        { key: 'times', type: 'int', label: '次数', min: 1, max: 9999, def: 20, suffix: '次' },
-        { key: 'ms', type: 'int', label: '滑动时长', min: 0, max: 5000, def: 80, suffix: 'ms' }
+        { key: 'times', type: 'int', label: '次数', min: 1, max: 9999, def: 20, suffix: '次' }
     ]
 };
 

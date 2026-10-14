@@ -579,6 +579,9 @@ function jobConfirmMorePicker() {
     // ★ 必须带 ga:<id> —— 运行时靠 key 的 'ga:' 前缀（或 type:'action'）
     //   判定这是通用动作段，否则会被当成植物段丢弃。
     const seg = { key: JOB_GA_PREFIX + ga.id, ga: ga.id };
+    // ★ comboWatchOff（滑飞弹）：插入即默认「原子连击」（连击中途不参与识别）。
+    //   与 jobConfirmGenPicker 同款处理 —— 两条插入路径必须一致。
+    if (ga.comboWatchOff) seg.comboWatch = false;
     jobApplyParamsToSeg(seg, ga, jobMoreValues);
     t[field].push(seg);
 

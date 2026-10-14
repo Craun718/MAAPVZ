@@ -317,6 +317,7 @@ def generic_dsl(
     slot: Any = None,
     times: Any = None,
     params: Optional[Dict[str, Any]] = None,
+    default_ms: Any = None,
 ) -> Dict[str, Any]:
     """把一个通用动作翻成 BatchSwipe DSL。
 
@@ -326,6 +327,9 @@ def generic_dsl(
     times:  仅 form 用 —— 点击次数，缺省/非法/越界时用 1（上限见 GENERIC_FORM_TIMES_MAX）
     params: ★ 通用参数袋 —— 网页端段上的所有自定义参数（{key: value}）。
             新增「带参数的通用动作」时优先走这里，见下方 GENERIC_SLOT_CLICK。
+    default_ms: ★ 滑动时长兜底（= 作业集级「调配参数」的滑动时长，compile.py 传入）。
+            目前只有 GENERIC_SWIPE_PAIR 族（滑飞弹等）用它：段上没有显式 ms 时跟随全局，
+            保证「调配参数和实际动作一致」；段上带 ms 仍作为单步覆盖（向后兼容）。
     返回 {"dsl": str, "missing": [...], "count": int}
     """
     aid = str(action or "").strip()
@@ -383,7 +387,8 @@ def generic_dsl(
 
     elif aid in GENERIC_SWIPE_PAIR:
         # ★ 固定两点滑动族（滑飞弹等）：swipe:点A,点B,时长
-        #   时长 ms 来自网页端 params（缺省 80，下限 0 = 瞬滑）
+        #   时长：段上显式 ms（单步覆盖，向后兼容） > default_ms（作业集级
+        #   「调配参数」滑动时长，跟随全局） > 80 兜底。
         spec = GENERIC_SWIPE_PAIR[aid]
         a = spec["from"] if _coord_ok(coords, spec["from"]) else None
         b = spec["to"] if _coord_ok(coords, spec["to"]) else None
@@ -396,7 +401,8 @@ def generic_dsl(
                            int(spec.get("times_def") or 1))
             gap = _clamp_int(merged.get("comboMs"), 0, 10000, 0)
             watch = merged.get("comboWatch", True) is not False
-            ms_v = _clamp_int(merged.get("ms"), 0, 5000, 80)
+            ms_fallback = _clamp_int(default_ms, 0, 5000, 80)
+            ms_v = _clamp_int(merged.get("ms"), 0, 5000, ms_fallback)
             parts.extend(rep_parts(f"swipe:{a},{b},{ms_v}", n, gap, watch))
 
     elif aid == "custom":
