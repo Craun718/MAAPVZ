@@ -3,173 +3,6 @@
         "timeout": 1000,
         "next": []
     },
-    "打开pvz_自定义包": {
-        "timeout": 180000,
-        "action": "StartApp",
-        "package": "",
-        "post_delay": 400,
-        "next": [
-            "点击登录"
-        ]
-    },
-    "打开pvz_华为": {
-        "timeout": 180000,
-        "action": "StartApp",
-        "package": "com.popcap.pvz2cthdhwct",
-        "post_delay": 400,
-        "next": [
-            "点击登录"
-        ]
-    },
-    "打开pvz_联想": {
-        "timeout": 180000,
-        "action": "StartApp",
-        "package": "com.popcap.pvz2cthdlx",
-        "post_delay": 400,
-        "next": [
-            "点击登录"
-        ]
-    },
-    "打开pvz_360": {
-        "timeout": 180000,
-        "action": "StartApp",
-        "package": "com.popcap.pvz2cthd360",
-        "post_delay": 400,
-        "next": [
-            "点击登录"
-        ]
-    },
-    "打开pvz_九游": {
-        "timeout": 180000,
-        "action": "StartApp",
-        "package": "com.popcap.pvz2cthduc",
-        "post_delay": 400,
-        "next": [
-            "点击登录",
-            "开始游戏"
-        ]
-    },
-    "打开pvz_OPPO": {
-        "timeout": 180000,
-        "action": "StartApp",
-        "package": "com.popcap.pvz2cthdop",
-        "post_delay": 400,
-        "next": [
-            "点击登录",
-            "开始游戏"
-        ]
-    },
-    "打开pvz_应用宝_qq": {
-        "timeout": 180000,
-        "action": "StartApp",
-        "package": "com.tencent.tmgp.pvz2hdtxyyb",
-        "post_delay": 400,
-        "next": [
-            "点击登录_应用宝_qq"
-        ]
-    },
-    "打开pvz_应用宝_微信": {
-        "timeout": 180000,
-        "action": "StartApp",
-        "package": "com.tencent.tmgp.pvz2hdtxyyb",
-        "post_delay": 400,
-        "next": [
-            "点击登录_应用宝_微信"
-        ]
-    },
-    "打开pvz_b服": {
-        "timeout": 180000,
-        "action": "StartApp",
-        "package": "com.popcap.pvz2cthd.bilibili",
-        "post_delay": 400,
-        "next": [
-            "点击登录",
-            "开始游戏"
-        ]
-    },
-    "打开pvz_vivo": {
-        "timeout": 180000,
-        "action": "StartApp",
-        "package": "com.popcap.pvz2cthdbbg",
-        "post_delay": 400,
-        "next": [
-            "点击登录",
-            "开始游戏"
-        ]
-    },
-    "打开pvz_荣耀": {
-        "timeout": 180000,
-        "action": "StartApp",
-        "package": "com.popcap.pvz2cthd.honor",
-        "post_delay": 400,
-        "next": [
-            "点击登录",
-            "开始游戏"
-        ]
-    },
-    "打开pvz_好游快报": {
-        "timeout": 180000,
-        "action": "StartApp",
-        "package": "com.popcap.pvz2cthdbk",
-        "post_delay": 400,
-        "next": [
-            "点击登录"
-        ]
-    },
-    "打开pvz_百度": {
-        "timeout": 180000,
-        "action": "StartApp",
-        "package": "com.popcap.pvz2cthd.g.baidu",
-        "post_delay": 400,
-        "next": [
-            "点击登录"
-        ]
-    },
-    "打开pvz_7723": {
-        "timeout": 180000,
-        "action": "StartApp",
-        "package": "com.popcap.pvz2cthdbazhang",
-        "post_delay": 400,
-        "next": [
-            "点击登录"
-        ]
-    },
-    "打开pvz_官服": {
-        "timeout": 180000,
-        "action": "StartApp",
-        "package": "com.popcap.pvz2cthdbk",
-        "post_delay": 400,
-        "next": [
-            "点击登录"
-        ]
-    },
-    "打开pvz_taptap": {
-        "timeout": 180000,
-        "action": "StartApp",
-        "package": "com.popcap.pvz2cthdbk",
-        "post_delay": 400,
-        "next": [
-            "点击登录_taptap"
-        ]
-    },
-    "打开pvz_4399": {
-        "timeout": 180000,
-        "action": "StartApp",
-        "package": "com.popcap.pvz2cthd4399",
-        "post_delay": 400,
-        "next": [
-            "点击登录"
-        ]
-    },
-    "打开pvz_XM": {
-        "timeout": 180000,
-        "action": "StartApp",
-        "package": "com.popcap.pvz2cthdxm",
-        "post_delay": 13000,
-        "next": [
-            "点击登录_XM"
-        ]
-    },
     // ==========关闭渠道服任务（StopApp），默认禁用 ==========
     "关闭pvz_自定义包": {
         "enabled": false,
@@ -225,24 +58,24 @@
             "打开pvz_OPPO"
         ]
     },
-    "关闭pvz_应用宝_qq": {
-        "enabled": false,
-        "timeout": 180000,
-        "action": "StopApp",
-        "package": "com.tencent.tmgp.pvz2hdtxyyb",
-        "next": [
-            "打开pvz_应用宝_qq"
-        ]
-    },
-    "关闭pvz_应用宝_微信": {
-        "enabled": false,
-        "timeout": 180000,
-        "action": "StopApp",
-        "package": "com.tencent.tmgp.pvz2hdtxyyb",
-        "next": [
-            "打开pvz_应用宝_微信"
-        ]
-    },
+    // "关闭pvz_应用宝_qq": {
+    //     "enabled": false,
+    //     "timeout": 180000,
+    //     "action": "StopApp",
+    //     "package": "com.tencent.tmgp.pvz2hdtxyyb",
+    //     "next": [
+    //         "打开pvz_应用宝_qq"
+    //     ]
+    // },
+    // "关闭pvz_应用宝_微信": {
+    //     "enabled": false,
+    //     "timeout": 180000,
+    //     "action": "StopApp",
+    //     "package": "com.tencent.tmgp.pvz2hdtxyyb",
+    //     "next": [
+    //         "打开pvz_应用宝_微信"
+    //     ]
+    // },
     "关闭pvz_b服": {
         "enabled": false,
         "timeout": 180000,

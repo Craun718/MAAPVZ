@@ -235,10 +235,10 @@
                     "name": "qq登录",
                     "pipeline_override": {
                         "选择渠道服": {
-                            "next": [
-                                "关闭pvz_应用宝_qq",
-                                "打开pvz_应用宝_qq"
-                            ]
+                            // "next": [
+                            //     "关闭pvz_应用宝_qq",
+                            //     "打开pvz_应用宝_qq"
+                            // ]
                         }
                     }
                 },
@@ -246,10 +246,10 @@
                     "name": "微信登录",
                     "pipeline_override": {
                         "选择渠道服": {
-                            "next": [
-                                "关闭pvz_应用宝_微信",
-                                "打开pvz_应用宝_微信"
-                            ]
+                            // "next": [
+                            //     "关闭pvz_应用宝_微信",
+                            //     "打开pvz_应用宝_微信"
+                            // ]
                         }
                     }
                 }
@@ -304,13 +304,13 @@
                         },
                         "关闭pvz_官服": {
                             "enabled": true
-                        },
-                        "关闭pvz_应用宝_qq": {
-                            "enabled": true
-                        },
-                        "关闭pvz_应用宝_微信": {
-                            "enabled": true
                         }
+                        // "关闭pvz_应用宝_qq": {
+                        //     "enabled": true
+                        // },
+                        // "关闭pvz_应用宝_微信": {
+                        //     "enabled": true
+                        // }
                     }
                 },
                 {

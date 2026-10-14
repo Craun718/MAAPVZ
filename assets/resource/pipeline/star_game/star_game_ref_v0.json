@@ -1,1 +1,258 @@
-{}
+{
+    "启动游戏_选择渠道服": {
+        // "action": "ClickKey",
+        // "key": [
+        //     3
+        // ],
+        //暂时注释着，可以等mfa修了再启用，防止重复登录黑屏用的
+        "next": [
+            "打开pvz_自定义包",
+            "打开pvz_华为",
+            "打开pvz_联想",
+            "打开pvz_360",
+            "打开pvz_九游",
+            "打开pvz_OPPO",
+            "打开pvz_应用宝",
+            "打开pvz_b服",
+            "打开pvz_vivo",
+            "打开pvz_荣耀",
+            "打开pvz_好游快报",
+            "打开pvz_百度",
+            "打开pvz_7723",
+            "打开pvz_官服",
+            "打开pvz_taptap",
+            "打开pvz_4399",
+            "打开pvz_XM"
+        ]
+    },
+    "打开pvz_自定义包": {
+        "timeout": 180000,
+        "action": "StartApp",
+        "enabled": false,
+        "package": "",
+        "post_delay": 400,
+        "next": [
+            "打开pvz_识别登录",
+            "[JumpBack]打开pvz_jumpback_EA",
+            "[JumpBack]打开pvz_jumpback_游戏"
+        ]
+    },
+    "打开pvz_华为": {
+        "timeout": 180000,
+        "action": "StartApp",
+        "enabled": false,
+        "package": "com.popcap.pvz2cthdhwct",
+        "post_delay": 400,
+        "next": [
+            "打开pvz_识别登录",
+            "[JumpBack]打开pvz_jumpback_EA",
+            "[JumpBack]打开pvz_jumpback_游戏"
+        ]
+    },
+    "打开pvz_联想": {
+        "timeout": 180000,
+        "action": "StartApp",
+        "enabled": false,
+        "package": "com.popcap.pvz2cthdlx",
+        "post_delay": 400,
+        "next": [
+            "打开pvz_识别登录",
+            "[JumpBack]打开pvz_jumpback_EA",
+            "[JumpBack]打开pvz_jumpback_游戏"
+        ]
+    },
+    "打开pvz_360": {
+        "timeout": 180000,
+        "action": "StartApp",
+        "enabled": false,
+        "package": "com.popcap.pvz2cthd360",
+        "post_delay": 400,
+        "next": [
+            "打开pvz_识别登录",
+            "[JumpBack]打开pvz_jumpback_EA",
+            "[JumpBack]打开pvz_jumpback_游戏"
+        ]
+    },
+    "打开pvz_九游": {
+        "timeout": 180000,
+        "action": "StartApp",
+        "enabled": false,
+        "package": "com.popcap.pvz2cthduc",
+        "post_delay": 400,
+        "next": [
+            "打开pvz_识别登录",
+            "[JumpBack]打开pvz_jumpback_EA",
+            "[JumpBack]打开pvz_jumpback_游戏"
+        ]
+    },
+    "打开pvz_OPPO": {
+        "timeout": 180000,
+        "action": "StartApp",
+        "enabled": false,
+        "package": "com.popcap.pvz2cthdop",
+        "post_delay": 400,
+        "next": [
+            "打开pvz_识别登录",
+            "[JumpBack]打开pvz_jumpback_EA",
+            "[JumpBack]打开pvz_jumpback_游戏"
+        ]
+    },
+    "打开pvz_应用宝": {
+        "timeout": 180000,
+        "action": "StartApp",
+        // "enabled": false,
+        "package": "com.tencent.tmgp.pvz2hdtxyyb",
+        "post_delay": 400,
+        "next": [
+            "打开pvz_识别登录",
+            "[JumpBack]打开pvz_jumpback_EA",
+            "[JumpBack]打开pvz_jumpback_游戏"
+        ]
+    },
+    "打开pvz_b服": {
+        "timeout": 180000,
+        "action": "StartApp",
+        "enabled": false,
+        "package": "com.popcap.pvz2cthd.bilibili",
+        "post_delay": 400,
+        "next": [
+            "打开pvz_识别登录",
+            "[JumpBack]打开pvz_jumpback_EA",
+            "[JumpBack]打开pvz_jumpback_游戏"
+        ]
+    },
+    "打开pvz_vivo": {
+        "timeout": 180000,
+        "action": "StartApp",
+        "enabled": false,
+        "package": "com.popcap.pvz2cthdbbg",
+        "post_delay": 400,
+        "next": [
+            "打开pvz_识别登录",
+            "[JumpBack]打开pvz_jumpback_EA",
+            "[JumpBack]打开pvz_jumpback_游戏"
+        ]
+    },
+    "打开pvz_荣耀": {
+        "timeout": 180000,
+        "action": "StartApp",
+        "enabled": false,
+        "package": "com.popcap.pvz2cthd.honor",
+        "post_delay": 400,
+        "next": [
+            "打开pvz_识别登录",
+            "[JumpBack]打开pvz_jumpback_EA",
+            "[JumpBack]打开pvz_jumpback_游戏"
+        ]
+    },
+    "打开pvz_好游快报": {
+        "timeout": 180000,
+        "action": "StartApp",
+        "enabled": false,
+        "package": "com.popcap.pvz2cthdbk",
+        "post_delay": 400,
+        "next": [
+            "打开pvz_识别登录",
+            "[JumpBack]打开pvz_jumpback_EA",
+            "[JumpBack]打开pvz_jumpback_游戏"
+        ]
+    },
+    "打开pvz_百度": {
+        "timeout": 180000,
+        "action": "StartApp",
+        "enabled": false,
+        "package": "com.popcap.pvz2cthd.g.baidu",
+        "post_delay": 400,
+        "next": [
+            "打开pvz_识别登录",
+            "[JumpBack]打开pvz_jumpback_EA",
+            "[JumpBack]打开pvz_jumpback_游戏"
+        ]
+    },
+    "打开pvz_7723": {
+        "timeout": 180000,
+        "action": "StartApp",
+        "enabled": false,
+        "package": "com.popcap.pvz2cthdbazhang",
+        "post_delay": 400,
+        "next": [
+            "打开pvz_识别登录",
+            "[JumpBack]打开pvz_jumpback_EA",
+            "[JumpBack]打开pvz_jumpback_游戏"
+        ]
+    },
+    "打开pvz_官服": {
+        "timeout": 180000,
+        "action": "StartApp",
+        "enabled": false,
+        "package": "com.popcap.pvz2cthdbk",
+        "post_delay": 400,
+        "next": [
+            "打开pvz_识别登录",
+            "[JumpBack]打开pvz_jumpback_EA",
+            "[JumpBack]打开pvz_jumpback_游戏"
+        ]
+    },
+    "打开pvz_taptap": {
+        "timeout": 180000,
+        "action": "StartApp",
+        "enabled": false,
+        "package": "com.popcap.pvz2cthdbk",
+        "post_delay": 400,
+        "next": [
+            "打开pvz_识别登录",
+            "[JumpBack]打开pvz_jumpback_EA",
+            "[JumpBack]打开pvz_jumpback_游戏"
+        ]
+    },
+    "打开pvz_4399": {
+        "timeout": 180000,
+        "action": "StartApp",
+        "enabled": false,
+        "package": "com.popcap.pvz2cthd4399",
+        "post_delay": 400,
+        "next": [
+            "打开pvz_识别登录",
+            "[JumpBack]打开pvz_jumpback_EA",
+            "[JumpBack]打开pvz_jumpback_游戏"
+        ]
+    },
+    "打开pvz_XM": {
+        "timeout": 180000,
+        "action": "StartApp",
+        "enabled": false,
+        "package": "com.popcap.pvz2cthdxm",
+        "post_delay": 13000,
+        "next": [
+            "打开pvz_识别登录",
+            "[JumpBack]打开pvz_jumpback_EA",
+            "[JumpBack]打开pvz_jumpback_游戏"
+        ]
+    },
+    "打开pvz_jumpback_EA": {
+        "recognition": "TemplateMatch",
+        "template": [
+            "Start_game/EA.png"
+        ],
+        "post_delay": 3000
+    },
+    "打开pvz_jumpback_游戏": {
+        "recognition": "OCR",
+        "expected": [
+            "游戏"
+        ],
+        "post_delay": 3000
+    },
+    "打开pvz_识别登录": {
+        "recognition": "OCR",
+        "expected": [
+            "登录"
+        ],
+        "next": []
+        //等到点击登录出现后再进行点击登录的操作
+    },
+    "打开pvz_点击登录_常规": {},
+    //4399小米等渠道服的点击登录都是只有一个登录按钮，所以就直接ocr识别点击登录2字即可
+    "打开pvz_点击登录_应用宝": {},
+    "打开pvz_点击登录_taptap": {}
+}
