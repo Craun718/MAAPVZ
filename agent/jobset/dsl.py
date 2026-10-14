@@ -407,7 +407,12 @@ def generic_dsl(
         #   act=multi  多指：pairs=[[from,to],...]（2~5 组），同时按下/移动/抬起
         #   键名必须是坐标表里的**原名**（用户从坐标表挑的），不做前缀猜测。
         act = str(merged.get("act") or "").strip()
-        ms_v = _clamp_int(merged.get("ms"), 50, 600000, 600)
+        # ★ ms 下限 0（2026-10-12，与作业集滑动时长下限对齐 —— 原来是 50，
+        #   用户把时长设 1 保存出来被静默夹成 50）。
+        # ★ 位置参数 ms 兜底并进参数袋：调用方直传 ms= 时不再静默丢成默认 600。
+        if merged.get("ms") is None and ms is not None:
+            merged["ms"] = ms
+        ms_v = _clamp_int(merged.get("ms"), 0, 600000, 600)
         # ★ 连击：所有自定义动作通用（点/滑/长按/多指 连做 N 次）
         n = _clamp_int(merged.get("times"), 1, GENERIC_FORM_TIMES_MAX, 1)
         # ★ 连击间隔 comboMs（默认 0 = 紧挨着连做；>0 时相邻两次间插 sleep）
