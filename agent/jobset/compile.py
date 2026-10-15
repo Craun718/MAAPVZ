@@ -153,7 +153,6 @@ def build_chain_nodes(
                     seg.get("slot"),
                     seg.get("times"),
                     seg,          # ★ 整个段都当参数袋 —— 新动作免改这里
-                    default_ms=swipe_ms,   # ★ 固定两点滑动族跟随作业集级滑动时长
                 )
                 if r["dsl"]:
                     _emit(seg, [p for p in r["dsl"].split(";") if p.strip()])
