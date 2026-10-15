@@ -248,11 +248,183 @@
         "expected": [
             "登录"
         ],
-        "next": []
+        "next": [
+            // "打开pvz_点击登录_常规",
+            "[JumpBack]点击登录_jumpback_关闭广告"
+        ]
         //等到点击登录出现后再进行点击登录的操作
     },
-    "打开pvz_点击登录_常规": {},
+    "打开pvz_点击登录_常规": {
+        "recognition": "OCR",
+        "expected": [
+            "登录"
+        ],
+        "threshold": 0.8,
+        "action": "Click",
+        "post_delay": 4000,
+        "next": [
+            "[JumpBack]点击登录_jumpback_关闭广告",
+            "[JumpBack]点击登录_jumpback_绑定设备",
+            "点击登录_开始游戏",
+            "打开pvz_点击登录_常规"
+        ]
+    },
     //4399小米等渠道服的点击登录都是只有一个登录按钮，所以就直接ocr识别点击登录2字即可
-    "打开pvz_点击登录_应用宝": {},
-    "打开pvz_点击登录_taptap": {}
+    "打开pvz_点击登录_应用宝_微信": {
+        "recognition": "Or",
+        "any_of": [
+            {
+                "recognition": "TemplateMatch",
+                "template": [
+                    "Start_game/点击登录_应用宝_微信.png"
+                ],
+                "threshold": 0.8
+            },
+            {
+                "recognition": "OCR",
+                "expected": [
+                    "微信登录"
+                ],
+                "threshold": 0.8
+            }
+        ],
+        "pre_wait_freezes": {
+            "time": 2000,
+            "threshold": 0.95,
+            "timeout": 10000,
+            "target": true,
+            "method": 5
+        },
+        "action": "Click",
+        "post_delay": 4000,
+        "next": [
+            "[JumpBack]点击登录_jumpback_关闭广告",
+            "[JumpBack]点击登录_jumpback_绑定设备",
+            "点击登录_开始游戏",
+            "打开pvz_点击登录_应用宝_微信"
+        ]
+    },
+    "打开pvz_点击登录_应用宝_qq": {
+        "timeout": 30000,
+        "recognition": "Or",
+        "any_of": [
+            {
+                "recognition": "TemplateMatch",
+                "template": [
+                    "Start_game/点击登录_应用宝_qq.png"
+                ],
+                "threshold": 0.8
+            },
+            {
+                "recognition": "OCR",
+                "expected": [
+                    "qq登录"
+                ],
+                "threshold": 0.8
+            }
+        ],
+        "pre_wait_freezes": {
+            "time": 2000,
+            "threshold": 0.95,
+            "timeout": 10000,
+            "target": true,
+            "method": 5
+        },
+        "action": "Click",
+        "post_delay": 4000,
+        "next": [
+            "[JumpBack]点击登录_jumpback_关闭广告",
+            "[JumpBack]点击登录_jumpback_绑定设备",
+            "点击登录_开始游戏",
+            "打开pvz_点击登录_应用宝_qq"
+        ]
+    },
+    "打开pvz_点击登录_taptap": {
+        "recognition": "OCR",
+        "expected": [
+            "登录"
+        ],
+        "pre_wait_freezes": {
+            "time": 2000,
+            "threshold": 0.95,
+            "timeout": 10000,
+            "target": true,
+            "method": 5
+        },
+        "roi": [
+            644,
+            251,
+            517,
+            437
+        ],
+        "action": "Click",
+        "next": [
+            "[JumpBack]点击登录_jumpback_关闭广告",
+            "[JumpBack]点击登录_jumpback_绑定设备",
+            "点击登录_开始游戏",
+            "打开pvz_点击登录_taptap"
+        ]
+    },
+    "点击登录_jumpback_关闭广告": {
+        "recognition": "Custom",
+        "enabled": false,
+        "custom_recognition": "get_ui",
+        "custom_recognition_param": {
+            "keyword": "close"
+        },
+        "action": "Click"
+    },
+    "点击登录_jumpback_绑定设备": {
+        "recognition": "OCR",
+        "expected": [
+            "绑定设备",
+            "确定"
+        ],
+        "action": "Click"
+    },
+    "点击登录_开始游戏": {
+        "recognition": "OCR",
+        "expected": [
+            "开始游戏"
+        ],
+        "action": "Click",
+        "focus": "点击开始游戏",
+        "next": []
+    },
+    "开始游戏_使用云端进度": {
+        //后续改成ocr
+        "recognition": "TemplateMatch",
+        "template": [
+            "Start_game/使用云端进度.png"
+        ],
+        "action": "Click",
+        "next": [
+            "开始游戏_存档覆盖",
+            "关闭公告"
+        ]
+    },
+    "开始游戏_使用本地进度": {
+        "recognition": "TemplateMatch",
+        "template": [
+            "Start_game/使用本地进度.png"
+        ],
+        "action": "Click",
+        "next": [
+            "开始游戏_存档覆盖",
+            "关闭公告"
+        ]
+    },
+    "开始游戏_存档覆盖": {
+        "timeout": 40000,
+        "recognition": "TemplateMatch",
+        "template": [
+            "Start_game/覆盖存档_确定.png"
+        ],
+        "action": "Click",
+        "post_delay": 5000,
+        "next": [
+            "关闭公告",
+            "开始游戏_使用云端进度"
+        ]
+    }
 }
