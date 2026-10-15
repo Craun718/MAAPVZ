@@ -546,8 +546,9 @@ def compile_jobset(raw: Dict[str, Any], log: LogFn = _noop) -> Dict[str, Any]:
     js = JobSet(raw, code=str(raw.get("code") or ""))
     every_n = _num(raw.get("everyN"), 10)
     # ★ 调配参数（步骤块 ⚙ 弹窗里调）：默认滑动毫秒数 / 动作间隔秒数。
-    #   swipeMs 空 -> 80；actionInterval 空 -> 不加 @前缀（BatchSwipe 用自己的默认间隔）。
-    swipe_ms = _num(raw.get("swipeMs"), 80)
+    #   swipeMs 空 -> 80；下限 0（瞬滑），手写负数兜底夹回 0；
+    #   actionInterval 空 -> 不加 @前缀（BatchSwipe 用自己的默认间隔）。
+    swipe_ms = max(0, _num(raw.get("swipeMs"), 80))
     interval = raw.get("actionInterval")
     if interval in (None, ""):
         interval = None

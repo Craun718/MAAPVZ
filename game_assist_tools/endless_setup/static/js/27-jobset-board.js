@@ -1036,6 +1036,7 @@ function jobStepCfgKind(st) {
     if (ga) {
         if (ga.id === 'form') return 'form';
         if (ga.id === 'custom') return 'custom';   // 自定义动作：专属参数编辑器（类型/坐标/时长）
+        if (ga.id === 'missile') return 'missile'; // 滑飞弹：连击 + 独立滑动时长（默认 10ms）
         return 'clickish';    // 点波/捡豆/加速 都是单击
     }
     const act = (typeof jobBoardActionOfKey === 'function') ? jobBoardActionOfKey(st.key) : null;
@@ -1177,6 +1178,25 @@ function jobRenderStepCfgParams() {
             function (v) { return '⚙ 连击间隔 = ' + v + 'ms'; });
         mkComboWatch(st);
         mkTip('只作用于这一步；块上会显示「槽N 丨 N次」。');
+    } else if (kind === 'missile') {
+        // ★ 滑飞弹：连击三件套 + 独立滑动时长（默认 10ms，0 = 瞬滑）。
+        //   ★ st.ms 缺省要回落 10，但 0 是合法值（瞬滑）——不能用 || 10 兜底。
+        const st = _stepCfgCtx.st;
+        bindInt(mkRow('连击次数', '次（这个动作连做 N 次）'), 1, 9999,
+            Math.min(9999, Math.max(1, Number(st.times) || 20)),
+            function (v) { jobStepCfgSave({ times: v }); },
+            function (v) { return '⚙ 连击次数 = ' + v; });
+        bindInt(mkRow('连击间隔', 'ms（默认 0 = 紧挨着连做）'), 0, 10000,
+            Math.min(10000, Math.max(0, Number(st.comboMs) || 0)),
+            function (v) { jobStepCfgSave({ comboMs: v }); },
+            function (v) { return '⚙ 连击间隔 = ' + v + 'ms'; });
+        mkComboWatch(st);
+        bindInt(mkRow('滑动时长', 'ms（滑飞弹专用；0 = 瞬滑）'), 0, 5000,
+            Math.min(5000, Math.max(0,
+                (st.ms === undefined || st.ms === null) ? 10 : Number(st.ms))),
+            function (v) { jobStepCfgSave({ ms: v }); },
+            function (v) { return '⚙ 滑飞弹滑动时长 = ' + v + 'ms'; });
+        mkTip('只作用于这一步；时长独立于作业集级默认滑动时长。');
     } else if (kind === 'wait') {
         const st = _stepCfgCtx.st;
         bindInt(mkRow('等待时长', 'ms'), 1, 600000,

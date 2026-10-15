@@ -383,7 +383,8 @@ def generic_dsl(
 
     elif aid in GENERIC_SWIPE_PAIR:
         # ★ 固定两点滑动族（滑飞弹等）：swipe:点A,点B,时长
-        #   时长 ms 来自网页端 params（缺省 80，下限 0 = 瞬滑）
+        #   时长 = 段上 ms（编辑器「更多」弹窗/⚙ 调配参数里调，默认 10）；
+        #   段上没有（手写 JSON）兜底 10ms。
         spec = GENERIC_SWIPE_PAIR[aid]
         a = spec["from"] if _coord_ok(coords, spec["from"]) else None
         b = spec["to"] if _coord_ok(coords, spec["to"]) else None
@@ -396,7 +397,7 @@ def generic_dsl(
                            int(spec.get("times_def") or 1))
             gap = _clamp_int(merged.get("comboMs"), 0, 10000, 0)
             watch = merged.get("comboWatch", True) is not False
-            ms_v = _clamp_int(merged.get("ms"), 0, 5000, 80)
+            ms_v = _clamp_int(merged.get("ms"), 0, 5000, 10)
             parts.extend(rep_parts(f"swipe:{a},{b},{ms_v}", n, gap, watch))
 
     elif aid == "custom":
@@ -407,7 +408,12 @@ def generic_dsl(
         #   act=multi  多指：pairs=[[from,to],...]（2~5 组），同时按下/移动/抬起
         #   键名必须是坐标表里的**原名**（用户从坐标表挑的），不做前缀猜测。
         act = str(merged.get("act") or "").strip()
-        ms_v = _clamp_int(merged.get("ms"), 50, 600000, 600)
+        # ★ ms 下限 0（2026-10-12，与作业集滑动时长下限对齐 —— 原来是 50，
+        #   用户把时长设 1 保存出来被静默夹成 50）。
+        # ★ 位置参数 ms 兜底并进参数袋：调用方直传 ms= 时不再静默丢成默认 600。
+        if merged.get("ms") is None and ms is not None:
+            merged["ms"] = ms
+        ms_v = _clamp_int(merged.get("ms"), 0, 600000, 600)
         # ★ 连击：所有自定义动作通用（点/滑/长按/多指 连做 N 次）
         n = _clamp_int(merged.get("times"), 1, GENERIC_FORM_TIMES_MAX, 1)
         # ★ 连击间隔 comboMs（默认 0 = 紧挨着连做；>0 时相邻两次间插 sleep）
