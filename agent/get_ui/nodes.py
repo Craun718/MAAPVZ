@@ -42,7 +42,7 @@ from maa.custom_recognition import CustomRecognition    # 识别节点的基类�
 # 相对导入：点(.)开头 = "和我在同一个包里找"。
 # 这行只在"作为包的一部分被 import"时有效（import get_ui.nodes 就是这种），
 # 直接 python nodes.py 单跑会报错——单文件调试请用包外的方式导入。
-from .helper import dump_ui_tree, find_topmost, to_maa_rect
+from .helper import dump_ui_tree, find_topmost, find_window_frame, frame_to_maa, to_maa_rect
 
 # 允许从 pipeline 透传给 find_topmost 的参数白名单
 _QUERY_KEYS = ("keyword", "clickable")
@@ -70,12 +70,14 @@ class GetUi(CustomRecognition):
     """通用控件定位：找【屏幕最上层】的匹配控件，返回它的位置 box。
 
     pipeline 参数：
-      keyword    必填。关键词，支持前缀指定字段：
-                   "close"     → id/desc/text 三字段任一命中
+      keyword    必填。关键词，支持前缀指定通道/字段：
+                   "close"     → id/desc/text 三字段任一命中（控件树通道）
                    "id:close"  → 只在 id 里找
                    "desc:跳过" → 只在 desc 里找
                    "text:领取" → 只在 text 里找
-      clickable  可选，默认 true：只要可点控件
+                   "win:GameAssistWindow" → 【窗口通道】找独立窗口（悬浮球），
+                                 走 dumpsys，不经控件树（悬浮球不在树里）
+      clickable  可选，默认 true：只要可点控件（win: 模式下忽略）
 
     命中多个时取最上层的那个。未命中返回 box=None。
     """
@@ -84,12 +86,28 @@ class GetUi(CustomRecognition):
         # ---- 1. 读参数，白名单透传 ----
         params = _parse_params(argv.custom_recognition_param)
         query = {k: params[k] for k in _QUERY_KEYS if k in params}
-        if not query.get("keyword"):
+        keyword = query.get("keyword")
+        if not keyword:
             return CustomRecognition.AnalyzeResult(
                 box=None, detail={"status": "keyword required"}
             )
 
-        # ---- 2. 取数：context.tasker.controller 是 MAA 给的设备遥控器 ----
+        # ---- 2a. 窗口通道：win: 前缀 → dumpsys 找独立窗口（悬浮球）----
+        if keyword.startswith("win:"):
+            win_kw = keyword[len("win:"):]
+            frame = find_window_frame(context.tasker.controller, win_kw)
+            if frame is None:
+                return CustomRecognition.AnalyzeResult(
+                    box=None, detail={"status": "not found", "window": win_kw}
+                )
+            box = frame_to_maa(context.tasker.controller, frame, image=argv.image)
+            return CustomRecognition.AnalyzeResult(
+                box=box,
+                detail={"status": "hit", "window": win_kw,
+                        "raw_frame": list(frame), "maa_box": list(box)},
+            )
+
+        # ---- 2b. 控件树通道：uiautomator dump 读焦点窗口 ----
         try:
             nodes = dump_ui_tree(context.tasker.controller)
         except RuntimeError as exc:

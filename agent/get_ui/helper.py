@@ -32,6 +32,9 @@ DUMP_PATH = "/sdcard/_mini_dump.xml"
 # 控件位置在 XML 里长这样：bounds="[1319,292][1403,376]"
 _BOUNDS_RE = re.compile(r"\[(\d+),(\d+)\]\[(\d+),(\d+)\]")
 
+# 窗口位置正则：dumpsys 输出里长这样：frame=[260,0][351,91]
+_FRAME_RE = re.compile(r"frame=\[(\d+),(\d+)\]\[(\d+),(\d+)\]")
+
 
 # ==============================================================================
 # 数据结构：一个 DumpNode = 屏幕上一个控件
@@ -153,6 +156,37 @@ def find_topmost(nodes: list[DumpNode], keyword: str,
 
 
 # ==============================================================================
+# 函数③：窗口通道（win: 前缀用）——找悬浮球这类"独立窗口"
+# ==============================================================================
+
+def _parse_window_frame(dumpsys_text: str, keyword: str) -> Optional[tuple[int, int, int, int]]:
+    """在 dumpsys 文本里，从 keyword 出现的位置往后找最近的 frame=[x1,y1][x2,y2]。
+
+    单独拆出来是为了能离线测试（喂假文本，不连设备）。
+    """
+    idx = dumpsys_text.find(keyword)
+    if idx < 0:
+        return None
+    m = _FRAME_RE.search(dumpsys_text, idx)        # 从 keyword 位置开始找，防止抓到别的窗口
+    return tuple(int(g) for g in m.groups()) if m else None  # type: ignore[return-value]
+
+
+def find_window_frame(controller, keyword: str) -> Optional[tuple[int, int, int, int]]:
+    """dumpsys 通道：在全系统窗口列表里找标题含 keyword 的窗口，返回物理像素 (x1,y1,x2,y2)。
+
+    为什么需要它：悬浮球这类【独立窗口】不在 uiautomator 控件树里
+    （dump 只读"焦点窗口"），只能用 dumpsys 这条通道。
+    注意：它只能给窗口的位置，窗口内部有什么控件看不见。
+    找不到返回 None。
+    """
+    # grep -A 20：窗口名那一行的下面 20 行内才有 frame；结尾 ; true 防止 grep 无匹配时整个命令被判失败
+    out = controller.post_shell(
+        f"dumpsys window windows | grep -A 20 '{keyword}'; true"
+    ).get(wait=True) or ""
+    return _parse_window_frame(out, keyword)
+
+
+# ==============================================================================
 # 函数③④：坐标换算
 # ==============================================================================
 
@@ -179,11 +213,16 @@ def maa_scale(controller, image: Any = None) -> tuple[float, float]:
     return iw / rw, ih / rh                        # 如 1280/1920 = 0.667
 
 
+def frame_to_maa(controller, frame: tuple[int, int, int, int], image: Any = None) -> tuple[int, int, int, int]:
+    """物理像素 (x1, y1, x2, y2) → MAA 空间 (x, y, 宽, 高)。窗口框和控件框通用。"""
+    sx, sy = maa_scale(controller, image)
+    x1, y1, x2, y2 = frame
+    return (int(x1 * sx), int(y1 * sy), int((x2 - x1) * sx), int((y2 - y1) * sy))
+
+
 def to_maa_rect(controller, node: DumpNode, image: Any = None) -> tuple[int, int, int, int]:
     """把控件的 bounds（物理像素）换算成 MAA 空间的 (x, y, 宽, 高)。
 
     这个四元组就是要返回给 MAA 的 box——MAA 拿到它会自动换算出点击中心点。
     """
-    sx, sy = maa_scale(controller, image)
-    x1, y1, x2, y2 = node.bounds
-    return (int(x1 * sx), int(y1 * sy), int((x2 - x1) * sx), int((y2 - y1) * sy))
+    return frame_to_maa(controller, node.bounds, image)
