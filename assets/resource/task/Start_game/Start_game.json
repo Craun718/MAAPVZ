@@ -40,7 +40,7 @@
                     "name": "Yes",
                     "pipeline_override": {
                         "点击登录_jumpback_绑定设备": {
-                            "enabled": true
+                            "action": "Click"
                         }
                     }
                 }

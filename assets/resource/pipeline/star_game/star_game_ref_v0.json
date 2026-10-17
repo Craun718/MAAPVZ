@@ -212,6 +212,7 @@
     },
     "打开pvz_中转": {
         "next": [
+            "[JumpBack]点击登录_jumpback_绑定设备",
             "打开pvz_识别登录",
             "点击登录_开始游戏",
             "开始游戏_识别进度",
@@ -273,7 +274,8 @@
         "timeout": 30000,
         "recognition": "OCR",
         "expected": [
-            "qq登录"
+            "QQ登录",
+            "QQ"
         ],
         "threshold": 0.8,
         "pre_wait_freezes": {
@@ -335,8 +337,15 @@
             "绑定设备",
             "确定"
         ],
-        "enabled": false,
-        "action": "Click"
+        "roi": [
+            325,
+            509,
+            464,
+            127
+        ],
+        // "action": "Click",
+        "action": "StopTask",
+        "focus": "请先绑定设备"
     },
     "点击登录_开始游戏": {
         "recognition": "OCR",
