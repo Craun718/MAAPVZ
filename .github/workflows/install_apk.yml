@@ -216,7 +216,7 @@ jobs:
           app:
             id: pvz
             label: Maapvz
-            icon: ../resource/docs/imgs/PVZAA.png
+            icon: ../resource/docs/imgs/logo.png
           EOF
 
       - name: Set PI_PROFILE environment variable
