@@ -1,18 +1,21 @@
 # -*- coding: utf-8 -*-
 """
 ================================================================================
-get_ui/helper.py — 工具库（原 mini_helper.py）
+get_ui/helper.py — 工具库
 ================================================================================
 
-职责：把"读设备界面"这件事拆成四个小函数，每个只干一件事：
+职责：把"读设备界面"这件事拆成小函数，每个只干一件事：
 
-    dump_ui_tree()   读屏幕 → 控件列表（list[DumpNode]）
-    find_topmost()   从列表里挑目标（最上层、含关键词、可点的那个）
-    maa_scale()      算坐标比例（设备像素 → MAA 空间）
-    to_maa_rect()    把控件位置换算成 MAA 认的 (x, y, w, h)
+    dump_ui_tree()        读屏幕 → 控件列表（list[DumpNode]）      【控件树通道】
+    find_topmost()        从列表里挑目标（关键词 + 排序 + 序号）
+    find_window_frames()  读系统窗口列表 → 窗口框列表               【窗口通道】
+    maa_scale()           算坐标比例（设备像素 → MAA 空间）
+    frame_to_maa()        物理像素框 → MAA 认的 (x, y, w, h)
+    to_maa_rect()         控件的 bounds → MAA 框（frame_to_maa 的控件版）
 
 调用链（记住这一条线，全库就懂了）：
     屏幕 → dump_ui_tree → find_topmost → to_maa_rect → box
+    系统 → dumpsys     → find_window_frames → frame_to_maa → box   （win: 前缀走这条）
 
 本文件不注册任何 MAA 节点，它是纯工具。注册在同包的 nodes.py。
 ================================================================================
@@ -88,7 +91,51 @@ def _to_node(el: ET.Element) -> DumpNode:
 
 
 # ==============================================================================
-# 函数①：读屏幕
+# 通用小工具：面积 / 排序 / 按序号挑选
+# ==============================================================================
+
+def _area_of_rect(rect: tuple[int, int, int, int]) -> int:
+    """(x1,y1,x2,y2) 框的面积 = 宽×高。控件 bounds 和窗口 frame 通用。"""
+    return (rect[2] - rect[0]) * (rect[3] - rect[1])
+
+
+def _sort_by_area(areas: list, sort: Optional[str]) -> None:
+    """按面积原地排序。"min"=小的在前，"max"=大的在前，其它值不动。
+
+    areas 里的元素可以是 DumpNode（取 .bounds）也可以是裸 frame 元组——
+    用 key 函数统一取出各自的框再算面积。
+    """
+    def area_of(item) -> int:
+        # 鸭子类型：不问"你是不是 DumpNode"，只问"你有没有 bounds"
+        # （isinstance 跨模块会失效——测试夹具的 DumpNode 来自另一个文件）
+        rect = getattr(item, "bounds", item)
+        return _area_of_rect(rect)
+
+    if sort == "min":
+        areas.sort(key=area_of)                    # 升序：最小的是第 1 个
+    elif sort == "max":
+        areas.sort(key=area_of, reverse=True)      # 降序：最大的是第 1 个
+
+
+def _pick_index(items: list, index: Any, default: Optional[Any]) -> Optional[Any]:
+    """按序号挑选（序号从 1 开始，符合人的习惯）。
+
+    index 没给 → 返回 default（调用方决定默认拿哪个）。
+    index 越界或不是数字 → None（识别失败，安全）。
+    """
+    if not items:
+        return None
+    if index is None:
+        return default
+    try:
+        i = int(index)
+    except (TypeError, ValueError):
+        return None
+    return items[i - 1] if 1 <= i <= len(items) else None
+
+
+# ==============================================================================
+# 函数①：读屏幕（控件树通道）
 # ==============================================================================
 
 def dump_ui_tree(controller, retries: int = 2) -> list[DumpNode]:
@@ -122,8 +169,10 @@ def dump_ui_tree(controller, retries: int = 2) -> list[DumpNode]:
 # ==============================================================================
 
 def find_topmost(nodes: list[DumpNode], keyword: str,
-                 clickable: bool = True) -> Optional[DumpNode]:
-    """从控件列表里找【屏幕最上层】含关键词的可点控件。没找到返回 None。
+                 clickable: bool = True,
+                 sort: Optional[str] = None,
+                 index: Optional[Any] = None) -> Optional[DumpNode]:
+    """从控件列表里挑一个匹配控件。没找到返回 None。
 
     keyword 支持前缀指定"在哪个字段找"：
       "close"      → 不带前缀：id / desc / text 三个字段任一命中即可
@@ -132,7 +181,11 @@ def find_topmost(nodes: list[DumpNode], keyword: str,
       "text:领取"  → 只在 text 里找
 
     clickable=True 过滤掉纯图片和纯容器（只留真能点的）。
-    "最上层" = 列表里最后一个命中（uiautomator 树序 = 屏幕叠放序）。
+
+    命中多个时怎么选：
+      sort   "min"=按面积小的在前，"max"=大的在前；不给 = 保持树序（屏幕叠放序）
+      index  序号（从 1 开始）：排序后选第几个；
+             不给 = 选树序最后一个（= 屏幕最上层，历史默认行为）
     """
     # ---- 解析前缀："desc:跳过" → 只在 desc 字段找 "跳过" ----
     field = None                                   # None = 不带前缀，三字段都找
@@ -152,42 +205,53 @@ def find_topmost(nodes: list[DumpNode], keyword: str,
                 hits.append(n)
         elif keyword in n.resource_id or keyword in n.desc or keyword in n.text:
             hits.append(n)                         # 没带前缀：三字段任一命中
-    return hits[-1] if hits else None              # 最后一个 = 最上层
+
+    _sort_by_area(hits, sort)                      # 给了 sort 才排序，不给保持树序
+    return _pick_index(hits, index, default=(hits[-1] if hits else None))
 
 
 # ==============================================================================
 # 函数③：窗口通道（win: 前缀用）——找悬浮球这类"独立窗口"
 # ==============================================================================
 
-def _parse_window_frame(dumpsys_text: str, keyword: str) -> Optional[tuple[int, int, int, int]]:
-    """在 dumpsys 文本里，从 keyword 出现的位置往后找最近的 frame=[x1,y1][x2,y2]。
+def _parse_window_frames(dumpsys_text: str, keyword: str) -> list[tuple[int, int, int, int]]:
+    """在 dumpsys 文本里找【所有】标题含 keyword 的窗口的 frame（同名窗口可能有多个）。
 
     单独拆出来是为了能离线测试（喂假文本，不连设备）。
+    原理：每次从 keyword 出现的位置往后找最近的 frame=...，然后从 frame 之后继续找下一个
+    ——这样同一个窗口名出现两次（Window 行和 Animator 行）也不会重复计数。
     """
-    idx = dumpsys_text.find(keyword)
-    if idx < 0:
-        return None
-    m = _FRAME_RE.search(dumpsys_text, idx)        # 从 keyword 位置开始找，防止抓到别的窗口
-    return tuple(int(g) for g in m.groups()) if m else None  # type: ignore[return-value]
+    frames = []
+    start = 0
+    while True:
+        idx = dumpsys_text.find(keyword, start)
+        if idx < 0:
+            break
+        m = _FRAME_RE.search(dumpsys_text, idx)    # 从 keyword 位置开始找最近的 frame
+        if m is None:
+            break
+        frames.append(tuple(int(g) for g in m.groups()))  # type: ignore[arg-type]
+        start = m.end()                            # 从这个 frame 之后继续，避免重复
+    return frames
 
 
-def find_window_frame(controller, keyword: str) -> Optional[tuple[int, int, int, int]]:
-    """dumpsys 通道：在全系统窗口列表里找标题含 keyword 的窗口，返回物理像素 (x1,y1,x2,y2)。
+def find_window_frames(controller, keyword: str) -> list[tuple[int, int, int, int]]:
+    """dumpsys 通道：在全系统窗口列表里找标题含 keyword 的窗口，返回物理像素框列表。
 
     为什么需要它：悬浮球这类【独立窗口】不在 uiautomator 控件树里
     （dump 只读"焦点窗口"），只能用 dumpsys 这条通道。
     注意：它只能给窗口的位置，窗口内部有什么控件看不见。
-    找不到返回 None。
+    找不到返回空列表。列表顺序 = dumpsys 窗口顺序（≈ 层叠序，上层在前）。
     """
     # grep -A 20：窗口名那一行的下面 20 行内才有 frame；结尾 ; true 防止 grep 无匹配时整个命令被判失败
     out = controller.post_shell(
         f"dumpsys window windows | grep -A 20 '{keyword}'; true"
     ).get(wait=True) or ""
-    return _parse_window_frame(out, keyword)
+    return _parse_window_frames(out, keyword)
 
 
 # ==============================================================================
-# 函数③④：坐标换算
+# 函数④：坐标换算
 # ==============================================================================
 
 def maa_scale(controller, image: Any = None) -> tuple[float, float]:

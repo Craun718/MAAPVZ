@@ -1,12 +1,12 @@
 # -*- coding: utf-8 -*-
 """
 ================================================================================
-get_ui/nodes.py — 注册层（原 mini_nodes.py）
+get_ui/nodes.py — 注册层
 ================================================================================
 
 职责：把 helper.py 的能力【注册】成 MAA pipeline 能引用的节点。
 
-整个文件只注册一个识别节点 "get_ui"——通用控件定位器。
+整个文件只注册一个识别节点 "get_ui"——通用定位器（控件树 + 窗口双通道）。
 动作不用写：pipeline 原生 Click / Swipe 会自动接住识别返回的位置。
 
 【"注册"到底是怎么回事】
@@ -42,10 +42,13 @@ from maa.custom_recognition import CustomRecognition    # 识别节点的基类�
 # 相对导入：点(.)开头 = "和我在同一个包里找"。
 # 这行只在"作为包的一部分被 import"时有效（import get_ui.nodes 就是这种），
 # 直接 python nodes.py 单跑会报错——单文件调试请用包外的方式导入。
-from .helper import dump_ui_tree, find_topmost, find_window_frame, frame_to_maa, to_maa_rect
+from .helper import (
+    _pick_index, _sort_by_area,
+    dump_ui_tree, find_topmost, find_window_frames, frame_to_maa, to_maa_rect,
+)
 
-# 允许从 pipeline 透传给 find_topmost 的参数白名单
-_QUERY_KEYS = ("keyword", "clickable")
+# 允许从 pipeline 透传的参数白名单
+_QUERY_KEYS = ("keyword", "clickable", "sort", "index")
 
 
 def _parse_params(raw: Any) -> dict[str, Any]:
@@ -67,7 +70,7 @@ def _parse_params(raw: Any) -> dict[str, Any]:
 
 @AgentServer.custom_recognition("get_ui")
 class GetUi(CustomRecognition):
-    """通用控件定位：找【屏幕最上层】的匹配控件，返回它的位置 box。
+    """通用定位：找匹配控件/窗口，返回它的位置 box。
 
     pipeline 参数：
       keyword    必填。关键词，支持前缀指定通道/字段：
@@ -78,8 +81,15 @@ class GetUi(CustomRecognition):
                    "win:GameAssistWindow" → 【窗口通道】找独立窗口（悬浮球），
                                  走 dumpsys，不经控件树（悬浮球不在树里）
       clickable  可选，默认 true：只要可点控件（win: 模式下忽略）
+      sort       可选，命中多个时按面积排序："min"=小的在前，"max"=大的在前
+      index      可选，序号（从 1 开始）：排序后选第几个。
+                 不给时——控件树通道选"最上层"，窗口通道选 dumpsys 列表第一个
 
-    命中多个时取最上层的那个。未命中返回 box=None。
+    悬浮球经典用法（两个同名 GameAssistWindow：小球 vs 底部关闭区）：
+      找球：    { "keyword": "win:GameAssistWindow", "sort": "min", "index": 1 }
+      找关闭区：{ "keyword": "win:GameAssistWindow", "sort": "max", "index": 1 }
+
+    未命中返回 box=None。
     """
 
     def analyze(self, context, argv: CustomRecognition.AnalyzeArg):
@@ -95,16 +105,22 @@ class GetUi(CustomRecognition):
         # ---- 2a. 窗口通道：win: 前缀 → dumpsys 找独立窗口（悬浮球）----
         if keyword.startswith("win:"):
             win_kw = keyword[len("win:"):]
-            frame = find_window_frame(context.tasker.controller, win_kw)
+            frames = find_window_frames(context.tasker.controller, win_kw)
+            _sort_by_area(frames, query.get("sort"))              # 给了 sort 才排
+            # 窗口默认拿第一个（dumpsys 顺序 ≈ 层叠序，上层在前）
+            frame = _pick_index(frames, query.get("index"),
+                                default=(frames[0] if frames else None))
             if frame is None:
                 return CustomRecognition.AnalyzeResult(
-                    box=None, detail={"status": "not found", "window": win_kw}
+                    box=None, detail={"status": "not found", "window": win_kw,
+                                      "found_frames": [list(f) for f in frames]}
                 )
             box = frame_to_maa(context.tasker.controller, frame, image=argv.image)
             return CustomRecognition.AnalyzeResult(
                 box=box,
                 detail={"status": "hit", "window": win_kw,
-                        "raw_frame": list(frame), "maa_box": list(box)},
+                        "raw_frame": list(frame), "maa_box": list(box),
+                        "found_frames": [list(f) for f in frames]},
             )
 
         # ---- 2b. 控件树通道：uiautomator dump 读焦点窗口 ----

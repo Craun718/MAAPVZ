@@ -84,7 +84,9 @@
                         },
                         "点击登录_寻找悬浮球": {
                             "custom_recognition_param": {
-                                "keyword": "win:GameAssistWindow"
+                                "keyword": "win:GameAssistWindow",
+                                "sort": "min",
+                                "index": 1
                             }
                         },
                         "悬浮球关闭方式_4399": {
