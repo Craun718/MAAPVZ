@@ -264,42 +264,72 @@ jobs:
           chmod +x gradlew
           ./gradlew :app:assembleDebug -Pmaa.abi=arm64-v8a
 
-      # ===== 打包后校验：APK 里那份 interface.json 的 rid 必须是 MaaPVZ_exec =====
-      # 注意：GitHub 默认 shell 是 bash -eo pipefail，这里刻意不用 grep -q | head 之类的管道，
-      # 改造用 [[ == wildcard ]] 纯 bash 匹配，避免 SIGPIPE 导致的假失败。
+      # ===== 打包后校验：APK 里的 PI 声明必须是 MaaPVZ_exec =====
+      # MaaFwApp 不会把 PI 散装放进 APK：整份 PI 由 build-logic 的 packPiArchive 打成
+      # assets/pi.zip（散装 assets 会被 AAPT 改写文件名），interface.json 在这个 zip 的根。
+      # 所以要先从 APK 取出 pi.zip、再读里面那份；顺带兼容将来改回散装的形式。
+      # 用 Python 而不是 shell：嵌套 zip 读起来干净，也避开 bash -eo pipefail 下
+      # grep -q / head 提前退出把上游 unzip 打成 SIGPIPE 的那种假失败。
       - name: Verify rid inside APK
         working-directory: maafwapp
         run: |
-          APK=app/build/outputs/apk/debug/app-debug.apk
-          ls -la "$APK"
+          python - <<'PY'
+          import io
+          import sys
+          import zipfile
+          from pathlib import Path
 
-          echo "=== interface.json entries in APK ==="
-          ENTRIES=$(unzip -Z1 "$APK" | grep 'interface\.json' || true)
-          if [ -z "$ENTRIES" ]; then
-            echo "❌ APK 内找不到 interface.json"
-            exit 1
-          fi
-          echo "$ENTRIES"
+          OLD = '"mirrorchyan_rid": "MaaPVZ",'
+          NEW = '"mirrorchyan_rid": "MaaPVZ_exec",'
+          APK = Path("app/build/outputs/apk/debug/app-debug.apk")
 
-          ok=0
-          while IFS= read -r entry; do
-            [ -n "$entry" ] || continue
-            body=$(unzip -p "$APK" "$entry")
-            echo "[$entry] $(printf '%s\n' "$body" | grep 'mirrorchyan_rid' || true)"
-            if [[ "$body" == *'"mirrorchyan_rid": "MaaPVZ",'* ]]; then
-              echo "❌ $entry 里的 rid 还是 MaaPVZ"
-              exit 1
-            fi
-            if [[ "$body" == *'"mirrorchyan_rid": "MaaPVZ_exec"'* ]]; then
-              ok=1
-            fi
-          done <<< "$ENTRIES"
 
-          if [ "$ok" != "1" ]; then
-            echo "❌ APK 内没有任何 interface.json 带 MaaPVZ_exec"
-            exit 1
-          fi
-          echo "✅ APK rid = MaaPVZ_exec"
+          def read_interface(apk):
+              """返回 (来源描述, interface.json 文本)；找不到时返回 (None, None) 并打印诊断。"""
+              with zipfile.ZipFile(apk) as z:
+                  names = z.namelist()
+                  archives = [n for n in names if n.endswith("pi.zip")]
+                  loose = [n for n in names if n.endswith("interface.json")]
+
+                  if archives:
+                      entry = archives[0]
+                      with zipfile.ZipFile(io.BytesIO(z.read(entry))) as pi:
+                          inner = pi.namelist()
+                          hit = [n for n in inner if n.endswith("interface.json")]
+                          if not hit:
+                              print(f"APK 内的 {entry} 里没有 interface.json，前 20 条：")
+                              for n in inner[:20]:
+                                  print("   ", n)
+                              return None, None
+                          return f"{entry}!/{hit[0]}", pi.read(hit[0]).decode("utf-8")
+
+                  if loose:
+                      return loose[0], z.read(loose[0]).decode("utf-8")
+
+                  print("APK 内既没有 pi.zip、也没有散装的 interface.json，前 40 条：")
+                  for n in names[:40]:
+                      print("   ", n)
+                  return None, None
+
+
+          print(f"APK: {APK} ({APK.stat().st_size} bytes)")
+          source, text = read_interface(APK)
+          if text is None:
+              sys.exit(1)
+
+          print(f"检查: {source}")
+          for line in text.splitlines():
+              if "mirrorchyan_rid" in line:
+                  print("   ", line.strip())
+
+          if OLD in text:
+              print("❌ 包内声明的 rid 还是 MaaPVZ，说明打包时没替换成功")
+              sys.exit(1)
+          if NEW not in text:
+              print("❌ 包内声明里找不到 MaaPVZ_exec")
+              sys.exit(1)
+          print("✅ APK 内 PI 的 mirrorchyan_rid = MaaPVZ_exec")
+          PY
 
       - name: Rename APK with version tag
         working-directory: maafwapp
