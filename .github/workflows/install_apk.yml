@@ -130,6 +130,29 @@ jobs:
             exit 1
           fi
 
+      # ===== 安卓包改 resource id（桌面端保持 MaaPVZ）=====
+      # APK 打包用的 interface.json 就是上一步从 assets/ 拍平拷到 resource 根目录的那份。
+      # 只改行内文本、不解析 JSON：该文件含 // 注释，不是严格 JSON，用 json/jsonc 回写会丢注释。
+      # 上传侧由官方的 mirrorchyan_release.yml 负责（matrix 里 android 那条 rid = MaaPVZ_exec），
+      # 这里只保证包内声明的 rid 与上传用的 rid 一致；桌面端沿用 assets/interface.json 的 MaaPVZ。
+      - name: Patch interface.json resource id for APK
+        working-directory: maafwapp
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          p = Path("../resource/interface.json")
+          s = p.read_text(encoding="utf-8")
+          old = '"mirrorchyan_rid": "MaaPVZ",'
+          new = '"mirrorchyan_rid": "MaaPVZ_exec",'
+          n = s.count(old)
+          if n != 1:
+              raise SystemExit(f"interface.json 里目标串出现 {n} 次（应为 1 次），拒绝继续打包：{old}")
+          p.write_text(s.replace(old, new, 1), encoding="utf-8")
+          hit = [l.strip() for l in p.read_text(encoding="utf-8").splitlines() if "mirrorchyan_rid" in l]
+          print("patched ->", hit)
+          PY
+
       # ===== 下载 OCR 模型到正确的路径：pi.zip/resource/model/ocr =====
       - name: Download OCR models from official CDN
         working-directory: maafwapp
@@ -240,6 +263,43 @@ jobs:
         run: |
           chmod +x gradlew
           ./gradlew :app:assembleDebug -Pmaa.abi=arm64-v8a
+
+      # ===== 打包后校验：APK 里那份 interface.json 的 rid 必须是 MaaPVZ_exec =====
+      # 注意：GitHub 默认 shell 是 bash -eo pipefail，这里刻意不用 grep -q | head 之类的管道，
+      # 改造用 [[ == wildcard ]] 纯 bash 匹配，避免 SIGPIPE 导致的假失败。
+      - name: Verify rid inside APK
+        working-directory: maafwapp
+        run: |
+          APK=app/build/outputs/apk/debug/app-debug.apk
+          ls -la "$APK"
+
+          echo "=== interface.json entries in APK ==="
+          ENTRIES=$(unzip -Z1 "$APK" | grep 'interface\.json' || true)
+          if [ -z "$ENTRIES" ]; then
+            echo "❌ APK 内找不到 interface.json"
+            exit 1
+          fi
+          echo "$ENTRIES"
+
+          ok=0
+          while IFS= read -r entry; do
+            [ -n "$entry" ] || continue
+            body=$(unzip -p "$APK" "$entry")
+            echo "[$entry] $(printf '%s\n' "$body" | grep 'mirrorchyan_rid' || true)"
+            if [[ "$body" == *'"mirrorchyan_rid": "MaaPVZ",'* ]]; then
+              echo "❌ $entry 里的 rid 还是 MaaPVZ"
+              exit 1
+            fi
+            if [[ "$body" == *'"mirrorchyan_rid": "MaaPVZ_exec"'* ]]; then
+              ok=1
+            fi
+          done <<< "$ENTRIES"
+
+          if [ "$ok" != "1" ]; then
+            echo "❌ APK 内没有任何 interface.json 带 MaaPVZ_exec"
+            exit 1
+          fi
+          echo "✅ APK rid = MaaPVZ_exec"
 
       - name: Rename APK with version tag
         working-directory: maafwapp
