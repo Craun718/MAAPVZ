@@ -245,6 +245,7 @@ jobs:
         run: |
           python - <<'PY'
           import io
+          import os
           import re
           import sys
           import zipfile
@@ -253,14 +254,20 @@ jobs:
           RID = "MaaPVZ_exec"
           OLD = '"mirrorchyan_rid": "MaaPVZ",'
           NEW = f'"mirrorchyan_rid": "{RID}"'
-          PROFILE = Path("../pi-profile.android.yaml")
           APK = Path("app/build/outputs/apk/debug/app-debug.apk")
 
           # 1) 配方里的声明。MaaFwApp 用 update.mirrorchyanRid 覆盖 interface.json 的值，
           #    所以这条才是安卓端真正会用的 rid；被删掉/改错时这里要红。
+          #    路径直接取前面步骤写进 GITHUB_ENV 的 PI_PROFILE：不自己拼相对路径
+          #    （校验步骤的 cwd 是 maafwapp，仓库在 ../resource，写死很容易写歪）。
+          profile_env = os.environ.get("PI_PROFILE", "")
+          if not profile_env:
+              print("❌ 环境变量 PI_PROFILE 没设置，前面的 Point PI_PROFILE 步骤可能没跑")
+              sys.exit(1)
+          PROFILE = Path(profile_env)
           ptext = PROFILE.read_text(encoding="utf-8") if PROFILE.is_file() else ""
           if not ptext:
-              print(f"❌ 找不到 {PROFILE}")
+              print(f"❌ 找不到 PI_PROFILE 指向的配方: {PROFILE}")
               sys.exit(1)
           if not re.search(rf"^\s*mirrorchyanRid:\s*['\"]?{RID}['\"]?\s*$", ptext, re.M):
               print(f"❌ {PROFILE} 里没有 update.mirrorchyanRid: {RID}")
