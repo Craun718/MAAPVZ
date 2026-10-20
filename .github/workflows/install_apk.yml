@@ -11,6 +11,7 @@ on:
       - "**.py"
       - "requirements.txt"
       - "docs/imgs/**"
+      - "pi-profile.android.yaml"
   pull_request:
     branches:
       - "**"
@@ -21,6 +22,7 @@ on:
       - "**.py"
       - "requirements.txt"
       - "docs/imgs/**"
+      - "pi-profile.android.yaml"
   workflow_dispatch:
     inputs:
       version:
@@ -205,47 +207,13 @@ jobs:
             echo "⚠️ agent scripts not found, skipping"
           fi
 
-      - name: Create pi profile
-        working-directory: maafwapp
+      # 配方改用仓库里的 pi-profile.android.yaml（不再在 CI 里 heredoc 现生成）：
+      # 改配置能走 review，也不会被 shell 展开 $ 之类的东西。里面的路径相对它自己的目录。
+      - name: Point PI_PROFILE at the checked-in profile
         run: |
-          cat > my-pvz-profile.yaml << EOF
-          assets: "$GITHUB_WORKSPACE/resource"
-          include:
-            - interface.json
-            - tasks/**
-            - resource/**
-            - resource_*/**
-            - data/**
-            - locales/**
-            - agent/**
-            - agent-dist/**
-            - docs/imgs/**
-            - model/**
-            - CONTACT
-            - LICENSE
-          exclude: []
-          agent:
-            sourceDir: "$GITHUB_WORKSPACE/resource/agent-dist"
-            abi: [arm64-v8a]
-            runtimes:
-              - location: bundle
-                executable: bin/python3
-                args: [-u, agent/main.py]
-                env:
-                  PYTHONHOME: "{bundle}/prefix"
-                  PYTHONPATH: "{bundle}/site-packages:{bundle}/site-packages/pure.zip"
-                  LD_LIBRARY_PATH: "{bundle}/prefix/lib:{bundle}/site-packages/chaquopy/lib:{nativeLibs}"
-                  MAAFW_BINARY_PATH: "{nativeLibs}"
-          app:
-            id: pvz
-            label: Maapvz
-            icon: ../resource/docs/imgs/logo.png
-          EOF
-
-      - name: Set PI_PROFILE environment variable
-        working-directory: maafwapp
-        run: |
-          echo "PI_PROFILE=$(pwd)/my-pvz-profile.yaml" >> $GITHUB_ENV
+          PROFILE="$GITHUB_WORKSPACE/resource/pi-profile.android.yaml"
+          ls -la "$PROFILE"
+          echo "PI_PROFILE=$PROFILE" >> "$GITHUB_ENV"
 
       - name: Create local.properties
         working-directory: maafwapp
@@ -264,26 +232,43 @@ jobs:
           chmod +x gradlew
           ./gradlew :app:assembleDebug -Pmaa.abi=arm64-v8a
 
-      # ===== 打包后校验：APK 里的 PI 声明必须是 MaaPVZ_exec =====
+      # ===== 校验安卓端的 MirrorChyan rid 是 MaaPVZ_exec（配方声明 + 包内声明）=====
+      # 配方那一份（update.mirrorchyanRid）才是 MaaFwApp 真正读的，会覆盖 interface.json 的值；
+      # 包内那一份是保险，防止 CI 拉的 MaaFwApp 版本不认该字段时静默退回桌面端的 rid。
       # MaaFwApp 不会把 PI 散装放进 APK：整份 PI 由 build-logic 的 packPiArchive 打成
       # assets/pi.zip（散装 assets 会被 AAPT 改写文件名），interface.json 在这个 zip 的根。
       # 所以要先从 APK 取出 pi.zip、再读里面那份；顺带兼容将来改回散装的形式。
       # 用 Python 而不是 shell：嵌套 zip 读起来干净，也避开 bash -eo pipefail 下
       # grep -q / head 提前退出把上游 unzip 打成 SIGPIPE 的那种假失败。
-      - name: Verify rid inside APK
+      - name: Verify android MirrorChyan rid
         working-directory: maafwapp
         run: |
           python - <<'PY'
           import io
+          import re
           import sys
           import zipfile
           from pathlib import Path
 
+          RID = "MaaPVZ_exec"
           OLD = '"mirrorchyan_rid": "MaaPVZ",'
-          NEW = '"mirrorchyan_rid": "MaaPVZ_exec",'
+          NEW = f'"mirrorchyan_rid": "{RID}"'
+          PROFILE = Path("../pi-profile.android.yaml")
           APK = Path("app/build/outputs/apk/debug/app-debug.apk")
 
+          # 1) 配方里的声明。MaaFwApp 用 update.mirrorchyanRid 覆盖 interface.json 的值，
+          #    所以这条才是安卓端真正会用的 rid；被删掉/改错时这里要红。
+          ptext = PROFILE.read_text(encoding="utf-8") if PROFILE.is_file() else ""
+          if not ptext:
+              print(f"❌ 找不到 {PROFILE}")
+              sys.exit(1)
+          if not re.search(rf"^\s*mirrorchyanRid:\s*['\"]?{RID}['\"]?\s*$", ptext, re.M):
+              print(f"❌ {PROFILE} 里没有 update.mirrorchyanRid: {RID}")
+              sys.exit(1)
+          print(f"OK: {PROFILE} 声明了 mirrorchyanRid = {RID}")
 
+          # 2) 包内声明。属于保险：万一 CI 拉的 MaaFwApp 那版不认上面的字段（会被静默忽略），
+          #    包内这份也得是对的，不能让 APK 悄悄去查桌面端那个 rid。
           def read_interface(apk):
               """返回 (来源描述, interface.json 文本)；找不到时返回 (None, None) 并打印诊断。"""
               with zipfile.ZipFile(apk) as z:
