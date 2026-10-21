@@ -918,6 +918,96 @@ except Exception as _e16:
 
 
 # ---------------------------------------------------------------------------
+# §17 图层覆盖重叠：先涂的赢（2026-10-22「第二关摆法没换」事故规则固化）
+# ---------------------------------------------------------------------------
+print("\n== §17 图层覆盖重叠：先涂的赢 ==")
+try:
+    from agent.jobset import engine as _eng17
+
+    _j17 = _eng17.JobSet({
+        "name": "overlap", "max_level": 3,
+        "tables": [
+            {"from_level": 1, "levels": [1, 2], "lineup": {"plants": ["A"]}},
+            {"from_level": 2, "levels": [2, 3], "lineup": {"plants": ["B"]}},
+        ]}, code="ov")
+    check("图层重叠：关卡2 归属先涂的表1", _j17.pick_table(2).index == 0,
+          f"got=表{_j17.pick_table(2).index + 1}")
+    check("图层：关卡3 归属表2", _j17.pick_table(3).index == 1,
+          f"got=表{_j17.pick_table(3).index + 1}")
+except Exception as _e17:
+    check("图层覆盖重叠", False, f"{type(_e17).__name__}: {_e17}")
+
+
+# ---------------------------------------------------------------------------
+# §18 当前世界/起始关卡 注入信道防冲突（2026-10-22 事故规则固化）
+#
+#   GUI 的 option 会合是「同节点同字段整体替换」：两个 option 都写
+#   无尽挑战_加载作业集代码.custom_action_param，后应用的把先应用的整个
+#   字段顶掉。所以：
+#     · JobSetLoad.custom_action_param  —— 只能由「无尽_起始关卡」写
+#     · 「当前世界」改由 16 个世界 case 写到 JobSetPlan 双节点
+#       （无尽局内_过关_正赛/训练），且必须带上 pipe 里的静态键
+#       （训练模式/计数），否则整体替换会把静态键抹掉。
+# ---------------------------------------------------------------------------
+print("\n== §18 注入信道防冲突（当前世界/起始关卡 分信道） ==")
+try:
+    import json as _json18
+    import re as _re18
+
+    _ROOT18 = Path(__file__).resolve().parent.parent.parent
+    _TASK18 = _ROOT18 / "assets" / "resource" / "task" / "Endless_ref" / "Endless_ref.json"
+    _PIPE18 = _ROOT18 / "assets" / "resource" / "pipeline" / "Endless_ref" / "03_Endless_fight" / "0300Endless_fight.json"
+
+    def _load_jsonc(p):
+        raw = p.read_text(encoding="utf-8")
+        raw = "\n".join(ln for ln in raw.splitlines() if not ln.lstrip().startswith("//"))
+        return _json18.loads(raw)
+
+    _t18 = _load_jsonc(_TASK18)
+    _cases18 = _t18["option"]["无尽挑战_选择世界"]["cases"]
+    check("世界 case 共 16 个", len(_cases18) == 16, f"got={len(_cases18)}")
+
+    _worlds18 = set()
+    _shape_ok = True
+    for _c in _cases18:
+        _ov = _c.get("pipeline_override", {})
+        # 不得再碰 JobSetLoad 的 param（冲突回归）
+        if "无尽挑战_加载作业集代码" in _ov:
+            _shape_ok = False
+        for _node, _tr in (("无尽局内_过关_正赛", False), ("无尽局内_过关_训练", True)):
+            _prm = _ov.get(_node, {}).get("custom_action_param")
+            if not isinstance(_prm, dict) \
+                    or _prm.get("训练模式") is not _tr \
+                    or _prm.get("计数") is not True \
+                    or not _prm.get("当前世界"):
+                _shape_ok = False
+            else:
+                _worlds18.add(_prm["当前世界"])
+    check("16 case 都写 Plan 双节点且带静态键（训练模式/计数）", _shape_ok)
+    check("16 case 当前世界互不相同", len(_worlds18) == 16, str(sorted(_worlds18)))
+
+    # JobSetLoad.custom_action_param 的唯一写入者 = 无尽_起始关卡
+    _writers18 = []
+    for _oname, _o in _t18.get("option", {}).items():
+        for _c in _o.get("cases", []) or []:
+            if "无尽挑战_加载作业集代码" in (_c.get("pipeline_override") or {}):
+                _writers18.append(f"{_oname}/{_c.get('name')}")
+        if "无尽挑战_加载作业集代码" in (_o.get("pipeline_override") or {}):
+            _writers18.append(_oname)
+    check("JobSetLoad param 唯一写入者=无尽_起始关卡",
+          _writers18 == ["无尽_起始关卡"], str(_writers18))
+
+    # pipe 侧静态键同步守卫：case 里照抄的静态值必须等于 pipe 原值
+    _p18 = _load_jsonc(_PIPE18)
+    check("pipe 正赛节点静态键未被改动（否则 16 case 要同步）",
+          _p18["无尽局内_过关_正赛"]["custom_action_param"] == {"训练模式": False, "计数": True})
+    check("pipe 训练节点静态键未被改动（否则 16 case 要同步）",
+          _p18["无尽局内_过关_训练"]["custom_action_param"] == {"训练模式": True, "计数": True})
+except Exception as _e18:
+    check("注入信道防冲突", False, f"{type(_e18).__name__}: {_e18}")
+
+
+# ---------------------------------------------------------------------------
 print("\n" + "=" * 52)
 if FAILED:
     print(f"FAILED {len(FAILED)}: {FAILED}")

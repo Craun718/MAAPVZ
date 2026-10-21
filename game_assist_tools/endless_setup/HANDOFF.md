@@ -258,7 +258,9 @@ assets\resource\pipeline\Endless_ref/03_Endless_fight\03-1Endless_fight_end\03-1
 ```jsonc
 {
   "code": "...", "name": "...", "max_level": 149,
-  // 适配世界（2026-10-13 新增；37-jobset-world.js 弹窗编辑；运行时 JobSetLoad 校验告警）
+  // 适配世界（2026-10-13 新增；37-jobset-world.js 弹窗编辑；运行时 JobSetPlan 首跑校验告警。
+  //   ★ 当前世界注到 JobSetPlan 双节点 param —— 别注 JobSetLoad：option 会合是
+  //     同节点同字段整体替换，会顶掉起始关卡 option 的 起始关卡/重置，2026-10-22 事故）
   "world": "冰河世界",              // 主适配世界（最佳适配）；"" / 缺省 = 未标注
   "sub_worlds": ["海盗港湾"],       // 副适配世界（候选，可多选，与主世界互斥）
   // 植物备注（2026-10-13 新增；38-jobset-notes.js 弹窗编辑；仅展示，运行时不消费）

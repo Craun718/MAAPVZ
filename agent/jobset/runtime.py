@@ -72,9 +72,12 @@ def _check_world(js: JobSet, cur_world: str) -> str:
     """适配世界校验：作业集标注的 world/sub_worlds vs GUI 选项「选择世界」当前值。
 
     返回提示文案（"" = 无提示）。只告警不拦停 ——
-    不一致时提示拼进 JobSetLoad 的 focus 与日志，任务照常运行。
-    「当前世界」由 task/Endless_ref 的 16 个世界 case 各自 override 注入
-    （无尽挑战_加载作业集代码.custom_action_param.当前世界）。
+    由 JobSetPlan 首跑时打印日志，任务照常运行。
+    「当前世界」由 task/Endless_ref 的 16 个世界 case 各自 override 注入到
+    JobSetPlan 双节点（无尽局内_过关_正赛/训练）的 custom_action_param。
+    ★ 不走 JobSetLoad 的 param：起始关卡 option 也写那个字段，GUI 的
+      option 会合是「同节点同字段整体替换」，两个 option 写同一字段必丢一个
+      （2026-10-22 起始关卡丢失事故）。
     """
     if not js.world:
         return "ℹ️ 该作业集未标注适配世界（用最新版编辑器重新保存可开启校验）"
@@ -807,6 +810,20 @@ class JobSetPlan(CustomAction):
             _log("尚未载入作业集（JobSetLoad 未执行）-> 无法判断阵容")
             return _fail()
 
+        # ---- 适配世界校验（每任务一次；「当前世界」由 16 个世界 case 注入到
+        #   **本节点**的 custom_action_param。不走 JobSetLoad 的 param ——
+        #   起始关卡 option 也写那个字段，GUI 按字段整体会合，后应用的 option
+        #   会把先应用的整个 custom_action_param 顶掉（2026-10-22 起始关卡
+        #   丢失事故：日志显示 GUI 先后应用 {起始关卡:1} 与 {当前世界:…} 到
+        #   同一节点同一字段，起始关卡被顶没）。Plan 双节点
+        #   （无尽局内_过关_正赛/训练）的 param 只有世界 option 一个写入者，
+        #   注入时静态键「训练模式/计数」按 pipe 原值原样带上。）----
+        if not _STATE.get("world_checked"):
+            _STATE["world_checked"] = True
+            _wnote = _check_world(js, str(param.get("当前世界") or "").strip())
+            if _wnote:
+                _log(_wnote)
+
         lv = tr.count
         table = js.pick_table(lv)
         training = bool(param.get("训练模式"))
@@ -935,8 +952,13 @@ class JobSetLoad(CustomAction):
           "作业集代码": "pvz_20260926_015808",   // 缺省读 jobs/current.json
           "起始关卡": 87,                          // ★ 由 MAA option「无尽_起始关卡」填入
           "重置": true,                            // 重新开始任务 -> 清空计数器
-          "当前世界": "冰河世界"                    // ★ 由 option「选择世界」16 个 case 注入（适配世界校验）
         }
+
+    ★ 本节点的 custom_action_param **只允许「无尽_起始关卡」一个 option 写**：
+      GUI 的 option 会合是「同节点同字段整体替换」，再有一个 option 写这个
+      字段就会把 起始关卡/重置 顶没（2026-10-22 事故：世界 case 曾把
+      「当前世界」注入这里，把起始关卡顶丢）。当前世界改注到 JobSetPlan
+      双节点，世界校验在 JobSetPlan 首跑时做。
 
     ★ 「起始关卡」是**必需**的：砍掉 OCR 后关卡号只由它 + 计数器推出。
       没填 -> 计数器从 0 起 -> 表选择落回第 1 张表（日志会告警）。
@@ -963,6 +985,7 @@ class JobSetLoad(CustomAction):
             _STATE["lineup_sig"] = None     # 当前生效阵容签名（跳过选卡判定）
             _STATE["artifact_sig"] = None   # 当前生效神器（跳过选神器判定）
             _STATE["training"] = None       # 训练模式标记（JobSetPlan 每关重写）
+            _STATE["world_checked"] = None  # 世界校验一次性标记（JobSetPlan 首跑置位）
             _log("已重置作业集状态（重新开始任务）")
 
         # ★ 任务起点清 boss 判定残留：它是跨关/跨任务的粘滞状态
@@ -989,6 +1012,25 @@ class JobSetLoad(CustomAction):
         for t in js.tables:
             rng = f"{t.from_level}~{t.to_level if t.to_level is not None else '末'}"
             _log(f"  表{t.index + 1} 关卡{rng} 植物={t.plants}")
+
+        # ---- 覆盖重叠检查（图层模式）：同一关被多张表覆盖时，**先涂的赢** ----
+        #   2026-10-22 事故：表1{1,2} 与 表2{2,3} 都覆盖第 2 关，用户以为
+        #   第 2 关会用表2，实际归属表1。载入时大声报出来，别静默。
+        if js.layered:
+            _overlap: Dict[int, List[int]] = {}
+            for _lv in range(1, (js.max_level or 149) + 1):
+                _own = [t.index + 1 for t in js.tables if t.covers(_lv)]
+                if len(_own) > 1:
+                    _overlap[_lv] = _own
+            if _overlap:
+                _samples = sorted(_overlap.items())[:3]
+                _txt = "；".join(
+                    f"关卡{l}: 表{'/表'.join(map(str, o))}→表{o[0]}"
+                    for l, o in _samples
+                )
+                _log(f"⚠️ 图层覆盖重叠 {len(_overlap)} 关（{_txt}"
+                     f"{' …' if len(_overlap) > 3 else ''}）：先涂的表生效；"
+                     "想换归属就在编辑器「布局配置」里把先涂的那格擦掉")
 
         # ---- 计数器 ----
         #
@@ -1035,19 +1077,12 @@ class JobSetLoad(CustomAction):
         # ---- 无尽局外 80 选卡（作业集级 outer_pick -> 80 选卡 custom 节点）----
         _apply_outer_pick(context, js)
 
-        # ---- 适配世界校验（不一致只告警不拦停，提示拼进 focus）----
-        cur_world = str(param.get("当前世界") or "").strip()
-        world_note = _check_world(js, cur_world)
-        if world_note:
-            _log(world_note)
-
         # ---- 用户可见 focus：已加载作业集 + 当前使用阵容 ----
         #   写在本节点（无尽挑战_加载作业集代码）上，节点完成时弹出；
         #   阵容块按预估表（与预热同口径）生成。
         table0 = js.pick_table(lv)
         _set_focus(context, NODE_LOAD,
                    f"已加载作业集：{js.name}\n"
-                   + (world_note + "\n" if world_note else "")
                    + _focus_lineup_block(table0, lv > 0 and lv % _BOSS_SNAP == 0))
 
         return _ok()
