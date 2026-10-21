@@ -1,0 +1,13 @@
+{
+    "关闭公告": {
+        "recognition": "TemplateMatch",
+        "template": [
+            "back_to_home/ref_backtohome/关闭公告.png"
+        ],
+        "action": "Click",
+        "next": [
+            "定位_主界面",
+            "[JumpBack]定位_公告类"
+        ]
+    }
+}
