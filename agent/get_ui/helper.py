@@ -36,7 +36,8 @@ DUMP_PATH = "/sdcard/_mini_dump.xml"
 _BOUNDS_RE = re.compile(r"\[(\d+),(\d+)\]\[(\d+),(\d+)\]")
 
 # 窗口位置正则：dumpsys 输出里长这样：frame=[260,0][351,91]
-_FRAME_RE = re.compile(r"frame=\[(\d+),(\d+)\]\[(\d+),(\d+)\]")
+# 坐标可为负：悬浮球半隐藏在屏幕边缘时 frame=[-52,218][53,323]，\d+ 会漏匹配并错抓下一窗口
+_FRAME_RE = re.compile(r"frame=\[(-?\d+),(-?\d+)\]\[(-?\d+),(-?\d+)\]")
 
 
 # ==============================================================================
@@ -168,7 +169,7 @@ def dump_ui_tree(controller, retries: int = 2) -> list[DumpNode]:
 # 函数②：挑目标（本包唯一的"识别逻辑"）
 # ==============================================================================
 
-def find_topmost(nodes: list[DumpNode], keyword: str,
+def find_topmost(nodes: list[DumpNode], keyword: Optional[str] = None,
                  clickable: bool = True,
                  sort: Optional[str] = None,
                  index: Optional[Any] = None) -> Optional[DumpNode]:
@@ -179,6 +180,9 @@ def find_topmost(nodes: list[DumpNode], keyword: str,
       "id:close"   → 只在 resource_id 里找
       "desc:跳过"  → 只在 desc 里找（适合"跳过 5s"这种倒计时，子串匹配）
       "text:领取"  → 只在 text 里找
+      ""（空）     → ★ 不做文字匹配，全部可点控件都是候选（配 sort/index 选目标）。
+                     适用：小米渠道悬浮球这类"无 id 无文字、但当时屏幕上唯一可点"的控件。
+                     注意：复杂界面慎用——候选 = 全部可点控件，选错会误点。
 
     clickable=True 过滤掉纯图片和纯容器（只留真能点的）。
 
@@ -189,22 +193,25 @@ def find_topmost(nodes: list[DumpNode], keyword: str,
     """
     # ---- 解析前缀："desc:跳过" → 只在 desc 字段找 "跳过" ----
     field = None                                   # None = 不带前缀，三字段都找
-    for prefix, attr in (("id:", "resource_id"), ("desc:", "desc"), ("text:", "text")):
-        if keyword.startswith(prefix):             # startswith：字符串以什么开头
-            field = attr                           # 记住要找哪个字段
-            keyword = keyword[len(prefix):]        # 把前缀切掉，留下真正的关键词
-            break
+    if keyword:
+        for prefix, attr in (("id:", "resource_id"), ("desc:", "desc"), ("text:", "text")):
+            if keyword.startswith(prefix):             # startswith：字符串以什么开头
+                field = attr                           # 记住要找哪个字段
+                keyword = keyword[len(prefix):]        # 把前缀切掉，留下真正的关键词
+                break
 
     hits = []
     for n in nodes:
         if clickable and not n.clickable:
             continue                               # 不可点的不要
-        if field is not None:
-            # 指定了字段：getattr(n, 字段名) 按名字取属性，只在这一个字段里找
-            if keyword in getattr(n, field):
-                hits.append(n)
-        elif keyword in n.resource_id or keyword in n.desc or keyword in n.text:
-            hits.append(n)                         # 没带前缀：三字段任一命中
+        if keyword:
+            if field is not None:
+                # 指定了字段：getattr(n, 字段名) 按名字取属性，只在这一个字段里找
+                if keyword not in getattr(n, field):
+                    continue
+            elif keyword not in n.resource_id and keyword not in n.desc and keyword not in n.text:
+                continue                               # 没带前缀：三字段任一不命中就跳过
+        hits.append(n)
 
     _sort_by_area(hits, sort)                      # 给了 sort 才排序，不给保持树序
     return _pick_index(hits, index, default=(hits[-1] if hits else None))
@@ -218,20 +225,18 @@ def _parse_window_frames(dumpsys_text: str, keyword: str) -> list[tuple[int, int
     """在 dumpsys 文本里找【所有】标题含 keyword 的窗口的 frame（同名窗口可能有多个）。
 
     单独拆出来是为了能离线测试（喂假文本，不连设备）。
-    原理：每次从 keyword 出现的位置往后找最近的 frame=...，然后从 frame 之后继续找下一个
-    ——这样同一个窗口名出现两次（Window 行和 Animator 行）也不会重复计数。
+    原理：按 "Window #" 切块；关键词只认块的【标题行】——WindowStateAnimator 行
+    也含窗口名，在那里命中会错抓下一个窗口的 frame（实测复现）。
+    块内第一个 frame= 即本窗口的（Frames: 行）。
     """
     frames = []
-    start = 0
-    while True:
-        idx = dumpsys_text.find(keyword, start)
-        if idx < 0:
-            break
-        m = _FRAME_RE.search(dumpsys_text, idx)    # 从 keyword 位置开始找最近的 frame
-        if m is None:
-            break
-        frames.append(tuple(int(g) for g in m.groups()))  # type: ignore[arg-type]
-        start = m.end()                            # 从这个 frame 之后继续，避免重复
+    for block in re.split(r"\n(?=  Window #)", dumpsys_text):
+        head = block.split("\n", 1)[0]                       # 块首行 = 窗口标题行
+        if keyword not in head:                              # Animator 行命中不算
+            continue
+        m = _FRAME_RE.search(block)                          # 块内第一个 frame 即本窗口
+        if m:
+            frames.append(tuple(int(g) for g in m.groups()))  # type: ignore[arg-type]
     return frames
 
 
@@ -243,9 +248,11 @@ def find_window_frames(controller, keyword: str) -> list[tuple[int, int, int, in
     注意：它只能给窗口的位置，窗口内部有什么控件看不见。
     找不到返回空列表。列表顺序 = dumpsys 窗口顺序（≈ 层叠序，上层在前）。
     """
-    # grep -A 20：窗口名那一行的下面 20 行内才有 frame；结尾 ; true 防止 grep 无匹配时整个命令被判失败
+    # 全量取回：窗口标题行到 Frames 行实测有 21 行，grep -A 20 会截断（悬浮球的 frame 直接被切掉）。
+    # dumpsys 全文仅几十 KB，一次取回无压力；解析按窗口块切分（见 _parse_window_frames），
+    # 不依赖 grep 上下文，也不赌设备上 grep 对 -A 的支持。
     out = controller.post_shell(
-        f"dumpsys window windows | grep -A 20 '{keyword}'; true"
+        "dumpsys window windows"
     ).get(wait=True) or ""
     return _parse_window_frames(out, keyword)
 
@@ -281,6 +288,12 @@ def frame_to_maa(controller, frame: tuple[int, int, int, int], image: Any = None
     """物理像素 (x1, y1, x2, y2) → MAA 空间 (x, y, 宽, 高)。窗口框和控件框通用。"""
     sx, sy = maa_scale(controller, image)
     x1, y1, x2, y2 = frame
+    # 悬浮球半隐藏在屏幕边缘时 frame 越界（如 x1=-52）：几何中心落在屏幕外/最边缘会点不中，
+    # 且 MAA 侧不允许负坐标。钳到屏幕内，让点击中心 = 可见部分的中心。
+    rw, rh = controller.resolution
+    if rw > 0 and rh > 0:
+        x1, x2 = max(0, x1), min(rw, x2)
+        y1, y2 = max(0, y1), min(rh, y2)
     return (int(x1 * sx), int(y1 * sy), int((x2 - x1) * sx), int((y2 - y1) * sy))
 
 

@@ -97,6 +97,24 @@
                 {
                     "name": "小米",
                     "pipeline_override": {
+                        "点击登录_寻找悬浮球": {
+                            "custom_recognition_param": {
+                                "keyword": "",
+                                "sort": "min",
+                                "index": 1
+                            }
+                        },
+                        "悬浮球关闭方式_小米": {
+                            "enabled": true
+                        },
+                        "点击登录_jumpback_关闭广告": {
+                            "custom_recognition_param": {
+                                "keyword": "",
+                                "sort": "min",
+                                "index": 1
+                            },
+                            "max_hit": 1
+                        },
                         "打开pvz_小米": {
                             "enabled": true
                         }

@@ -73,13 +73,18 @@ class GetUi(CustomRecognition):
     """通用定位：找匹配控件/窗口，返回它的位置 box。
 
     pipeline 参数：
-      keyword    必填。关键词，支持前缀指定通道/字段：
+      keyword    必填（允许空字符串）。关键词，支持前缀指定通道/字段：
                    "close"     → id/desc/text 三字段任一命中（控件树通道）
                    "id:close"  → 只在 id 里找
                    "desc:跳过" → 只在 desc 里找
                    "text:领取" → 只在 text 里找
+                   ""          → ★ 不按文字匹配，全部可点控件都是候选，
+                                 配 sort/index 选目标。适用：小米渠道悬浮球这类
+                                 "无 id 无文字、但当时屏幕上唯一可点"的控件。
+                                 复杂界面慎用（候选=全部可点，选错会误点）。
                    "win:GameAssistWindow" → 【窗口通道】找独立窗口（悬浮球），
                                  走 dumpsys，不经控件树（悬浮球不在树里）
+                   "win:Panel:" → 应用宝渠道悬浮球（APPLICATION_PANEL 子窗口）
       clickable  可选，默认 true：只要可点控件（win: 模式下忽略）
       sort       可选，命中多个时按面积排序："min"=小的在前，"max"=大的在前
       index      可选，序号（从 1 开始）：排序后选第几个。
@@ -88,6 +93,8 @@ class GetUi(CustomRecognition):
     悬浮球经典用法（两个同名 GameAssistWindow：小球 vs 底部关闭区）：
       找球：    { "keyword": "win:GameAssistWindow", "sort": "min", "index": 1 }
       找关闭区：{ "keyword": "win:GameAssistWindow", "sort": "max", "index": 1 }
+    小米渠道悬浮球（控件树里唯一可点控件）：
+      { "keyword": "", "sort": "min", "index": 1 }
 
     未命中返回 box=None。
     """
@@ -97,7 +104,7 @@ class GetUi(CustomRecognition):
         params = _parse_params(argv.custom_recognition_param)
         query = {k: params[k] for k in _QUERY_KEYS if k in params}
         keyword = query.get("keyword")
-        if not keyword:
+        if keyword is None:                      # 空字符串合法（= 全部可点控件）
             return CustomRecognition.AnalyzeResult(
                 box=None, detail={"status": "keyword required"}
             )
