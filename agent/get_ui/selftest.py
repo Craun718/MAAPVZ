@@ -14,7 +14,7 @@ from pathlib import Path
 # 直接 import 同包 helper（纯工具模块，不依赖 maa）
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from helper import _FRAME_RE, _parse_window_frames, frame_to_maa  # noqa: E402
-from helper import DumpNode, find_topmost  # noqa: E402
+from helper import DumpNode, find_topmost, valid_box  # noqa: E402
 
 # ---- 真实 fixture（逐行保留关键结构；注意 dumpsys 里 "  Window #" 标题行有两个前导空格）----
 DUMP = """  Window #4 Window{36e6808 u0 ShellDropTarget}:
@@ -120,6 +120,16 @@ n = find_topmost(TREE2, "", sort="max", index=1)
 check("空关键词+sort:max 选最大可点", n is not None and tuple(n.bounds) == (800, 400, 1100, 500),
       f"bounds={n.bounds if n else None}")
 check("不匹配返回 None", find_topmost(TREE2, "不存在的东西") is None)
+
+print("== 7. valid_box：空结果视为没识别到 ==")
+check("None 无效", not valid_box(None))
+check("零宽无效", not valid_box((10, 10, 0, 5)))
+check("零高无效", not valid_box((10, 10, 5, 0)))
+check("全零无效", not valid_box((0, 0, 0, 0)))
+check("正常 box 有效", valid_box((0, 145, 35, 70)))
+# 越界窗口钳制后宽变 0 → 也应判无效（球被完全拖出屏幕的场景）
+box_empty = frame_to_maa(_FakeCtrl(), (-200, 218, -120, 323), image=_FakeImg())
+check("完全在屏外的窗口钳制后无效", not valid_box(box_empty), f"box={box_empty}")
 
 print()
 if failures:

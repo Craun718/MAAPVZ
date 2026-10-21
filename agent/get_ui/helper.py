@@ -303,3 +303,13 @@ def to_maa_rect(controller, node: DumpNode, image: Any = None) -> tuple[int, int
     这个四元组就是要返回给 MAA 的 box——MAA 拿到它会自动换算出点击中心点。
     """
     return frame_to_maa(controller, node.bounds, image)
+
+
+def valid_box(box: Any) -> bool:
+    """box 是否有效：必须存在且宽、高都 > 0。
+
+    空结果一律视为【没识别到】，否则 MAA 会拿 (x,y,0,0) 去点 → 误点屏幕角落：
+      - 窗口通道：隐藏/已销毁窗口的 frame 可能是 [0,0][0,0]，钳制后也可能宽0高0
+      - 控件树通道：uiautomator 偶发给出 bounds="[0,0][0,0]" 的可点节点
+    """
+    return box is not None and box[2] > 0 and box[3] > 0

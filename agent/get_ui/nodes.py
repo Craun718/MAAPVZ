@@ -45,6 +45,7 @@ from maa.custom_recognition import CustomRecognition    # 识别节点的基类�
 from .helper import (
     _pick_index, _sort_by_area,
     dump_ui_tree, find_topmost, find_window_frames, frame_to_maa, to_maa_rect,
+    valid_box,
 )
 
 # 允许从 pipeline 透传的参数白名单
@@ -123,6 +124,13 @@ class GetUi(CustomRecognition):
                                       "found_frames": [list(f) for f in frames]}
                 )
             box = frame_to_maa(context.tasker.controller, frame, image=argv.image)
+            # 空结果（宽/高为 0，如隐藏窗口 frame=[0,0][0,0]）视为没识别到，不拿去做点击
+            if not valid_box(box):
+                return CustomRecognition.AnalyzeResult(
+                    box=None, detail={"status": "empty box", "window": win_kw,
+                                      "raw_frame": list(frame),
+                                      "found_frames": [list(f) for f in frames]}
+                )
             return CustomRecognition.AnalyzeResult(
                 box=box,
                 detail={"status": "hit", "window": win_kw,
@@ -147,6 +155,14 @@ class GetUi(CustomRecognition):
 
         # ---- 4. 换算成 MAA 坐标并返回。image=argv.image 是 MAA 递进来的当前截图 ----
         box = to_maa_rect(context.tasker.controller, node, image=argv.image)
+        # 空结果（宽/高为 0，如 bounds="[0,0][0,0]" 的节点）视为没识别到，不拿去做点击
+        if not valid_box(box):
+            return CustomRecognition.AnalyzeResult(
+                box=None,
+                detail={"status": "empty box",
+                        "matched_id": node.resource_id,
+                        "raw_bounds": list(node.bounds)},
+            )
         return CustomRecognition.AnalyzeResult(
             box=box,                       # ← 核心产出：位置。MAA 会拿它当 Click/Swipe 的目标
             detail={                       # ← 调试信息，只进日志，不影响行为
