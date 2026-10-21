@@ -283,17 +283,14 @@ def _reco_text(argv: Any) -> Optional[str]:
 #   它认到「清空卡牌」才会 Click 并走 next。认不到 -> OCR 超时 -> 不会误点编队。
 #   所以这里不需要额外加识别节点。
 #
-# ★★ 「切换编队序号」是 **Or 节点**（2026-10 由单 any_of 改成**两个** any_of）：
-#   Or 的命中由各 any_of[i] 自己的 expected 决定，**节点顶层的 expected 对 Or 无效**。
-#   所以编队号必须写进**每一个** any_of 项里。
-#   原来只往节点顶层写 expected —— 对 Or 节点等于没写，编队号永远匹配不上。
-#
-#   两个 any_of 的 roi 不同（135,129,57,167 与 132,125,77,566），对应
-#   「编队列表的不同显示区域」，是**同一个语义**：同一个编队号要同时写进两项。
-#
-#   ⚠️ 这里**重建整个 any_of 数组**，而不是只盖 any_of[i].expected ——
-#     不依赖 MAA 对「any_of 子项能不能被 override 合进去」的实现细节。
-#     roi/threshold 等字段从 pipe 原值照抄，改的只有 expected。
+# ★★ 「切换编队序号」是 **Or 节点**（2026-10-13 pipe 新版写法）：
+#   any_of 里是**具名节点引用** ["识别编队1", "识别编队2"]，两个 OCR 节点的
+#   roi 不同（135,129,57,167 与 132,125,77,566，覆盖编队列表的不同显示区域），
+#   expected 长在这两个**具名节点**自己身上。
+#   所以注入直接改「识别编队1/识别编队2」的 expected 即可 ——
+#   override_pipeline 是**字段级合并**，roi / threshold / color_filter
+#   仍以 pipe 为准，改 pipe 无需再同步任何 runtime 骨架。
+#   （旧版 any_of 内联对象时代的 _SQUAD_ANY_OF 骨架已随这次改版移除。）
 # ---------------------------------------------------------------------------
 
 # pipe 节点名（与 02_Endless_plant_Choose_ref.json 一一对应）
@@ -301,6 +298,9 @@ NODE_CLEAR_CARDS = "无尽挑战_识别开始战斗_清空卡牌"
 NODE_CHOOSE_PLANTS = "无尽挑战_选取植物"
 NODE_SWITCH_SQUAD = "无尽挑战_切换编队"
 NODE_SQUAD_INDEX = "无尽_切换编队序号"
+# 「切换编队序号」Or 的具名分支：expected 注入目标
+NODE_SQUAD_OCR_1 = "识别编队1"
+NODE_SQUAD_OCR_2 = "识别编队2"
 
 # ---- 无尽局外 80 选卡（作业集级 outer_pick 的注入目标）----
 # pipe 文件：06_Endless_80plant_choose/0601~0603
@@ -606,22 +606,8 @@ def _inject_artifact(context: Context, table, is_boss: bool,
     except Exception as e:
         _log(f"注入神器流程失败（{type(e).__name__}: {e}）")
 
-# 「无尽_切换编队序号」的 Or 分支骨架（从 pipe 照抄，只留结构字段）。
-#   两项的 roi 不同 = 覆盖编队列表的不同显示区域；expected 由 squad 注入。
-#   ⚠️ 这两项必须与 02_Endless_plant_Choose_ref.json 的 any_of **保持同步**：
-#      改了 pipe 里的 roi / 项数，这里也要跟着改，否则注入会把 pipe 的改动盖掉。
-_SQUAD_ANY_OF = [
-    {"recognition": "OCR", "roi": [135, 129, 57, 167], "threshold": 0.5},
-    {"recognition": "OCR", "roi": [132, 125, 77, 566], "threshold": 0.5},
-]
-
-
-def _squad_any_of(expected: List[str]) -> List[Dict[str, Any]]:
-    """按 expected 重建 Or 的 any_of 数组（每个分支都写入同一个 expected）。"""
-    return [
-        dict(entry, expected=list(expected))
-        for entry in _SQUAD_ANY_OF
-    ]
+# 编队号注入目标 = Or 的两个具名分支节点「识别编队1/2」的 expected。
+# override 是字段级合并：只动 expected，roi / threshold / color_filter 全留 pipe 原值。
 
 
 def _squad_param(squad: Optional[int]) -> Dict[str, Any]:
@@ -633,15 +619,16 @@ def _squad_param(squad: Optional[int]) -> Dict[str, Any]:
     if squad is None:
         return {
             NODE_CLEAR_CARDS: {"next": list(NEXT_PICK_PLANTS)},
-            # ★ 回滚也要走 any_of：只写顶层 expected 对 Or 节点无效，清不掉编队号。
-            NODE_SQUAD_INDEX: {"any_of": _squad_any_of([])},
+            # ★ 两个具名分支节点都要清空，漏一个 = 残留旧编队号。
+            NODE_SQUAD_OCR_1: {"expected": []},
+            NODE_SQUAD_OCR_2: {"expected": []},
         }
     return {
         NODE_CLEAR_CARDS: {"next": [NODE_SWITCH_SQUAD]},
         # expected 必须是**字符串列表**（OCR 的比对格式）；
         # 写成数字 MAA 会当成非法 expected，识别永不命中。
-        # ★ Or 节点：两个 any_of 分支都要写，只写顶层 expected 是无效的。
-        NODE_SQUAD_INDEX: {"any_of": _squad_any_of([str(squad)])},
+        NODE_SQUAD_OCR_1: {"expected": [str(squad)]},
+        NODE_SQUAD_OCR_2: {"expected": [str(squad)]},
     }
 
 

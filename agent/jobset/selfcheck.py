@@ -479,11 +479,12 @@ except Exception as _e9:
 
 
 # ---------------------------------------------------------------------------
-print("\n=== 10. 编队注入：Or 节点必须写进 each any_of ===")
+print("\n=== 10. 编队注入：Or 具名分支（识别编队1/2）写 expected ===")
 #
-# 背景：`无尽_切换编队序号` 是 **Or 节点**，命中由各 any_of[i] 自己的 expected
-# 决定，节点顶层的 expected 对 Or 无效。曾经只往顶层写 -> 编队号永不命中。
-# 这里同时把注入结果与**真实 pipe 文件**对照，pipe 改了就立刻报出来。
+# 背景（2026-10-13 pipe 新版写法）：`无尽_切换编队序号` 是 **Or 节点**，
+# any_of 是具名节点引用 ["识别编队1", "识别编队2"]，expected 长在具名节点上。
+# 运行时注入只动这两个节点的 expected（字段级合并，roi/threshold/color_filter
+# 以 pipe 为准）。这里同时把注入结果与**真实 pipe 文件**对照，pipe 改了就立刻报出来。
 try:
     import json as _json10
     from agent.jobset import runtime as _rt10
@@ -491,37 +492,34 @@ try:
     _p_none = _rt10._squad_param(None)
     _p_sq = _rt10._squad_param(3)
 
-    # --- 选卡分支：next 还原 + expected 清空（也要走 any_of）---
+    # --- 选卡分支：next 还原 + 两个具名节点 expected 清空 ---
     check("squad=None: 清空卡牌 next 还原成选卡",
           _p_none[_rt10.NODE_CLEAR_CARDS]["next"] == [_rt10.NODE_CHOOSE_PLANTS],
           str(_p_none[_rt10.NODE_CLEAR_CARDS]["next"]))
-    check("squad=None: 切换编队序号 走 any_of 清空",
-          "any_of" in _p_none[_rt10.NODE_SQUAD_INDEX]
-          and "expected" not in _p_none[_rt10.NODE_SQUAD_INDEX],
-          str(sorted(_p_none[_rt10.NODE_SQUAD_INDEX].keys())))
-    check("squad=None: 所有 any_of 分支 expected 都是 []",
-          all(e.get("expected") == []
-              for e in _p_none[_rt10.NODE_SQUAD_INDEX]["any_of"]),
-          str([e.get("expected") for e in _p_none[_rt10.NODE_SQUAD_INDEX]["any_of"]]))
+    check("squad=None: 识别编队1/2 expected 都清空",
+          _p_none[_rt10.NODE_SQUAD_OCR_1]["expected"] == []
+          and _p_none[_rt10.NODE_SQUAD_OCR_2]["expected"] == [])
 
-    # --- 编队分支：next 换成切换编队 + 每个分支都带字符串编队号 ---
+    # --- 编队分支：next 换成切换编队 + 两个具名节点都带字符串编队号 ---
     check("squad=3: 清空卡牌 next 换成切换编队",
           _p_sq[_rt10.NODE_CLEAR_CARDS]["next"] == [_rt10.NODE_SWITCH_SQUAD],
           str(_p_sq[_rt10.NODE_CLEAR_CARDS]["next"]))
-    _any10 = _p_sq[_rt10.NODE_SQUAD_INDEX]["any_of"]
-    check("squad=3: 是 Or 且 any_of 有两项",
-          len(_any10) == 2, f"len={len(_any10)}")
-    check("★squad=3: **每一个** any_of 分支都写入 expected",
-          all(e.get("expected") == ["3"] for e in _any10),
-          str([e.get("expected") for e in _any10]))
-    check("★squad=3: 顶层不写 expected（对 Or 无效，写了是误导）",
-          "expected" not in _p_sq[_rt10.NODE_SQUAD_INDEX],
-          str(sorted(_p_sq[_rt10.NODE_SQUAD_INDEX].keys())))
+    check("★squad=3: 识别编队1/2 都写入 expected",
+          _p_sq[_rt10.NODE_SQUAD_OCR_1]["expected"] == ["3"]
+          and _p_sq[_rt10.NODE_SQUAD_OCR_2]["expected"] == ["3"],
+          str([_p_sq[_rt10.NODE_SQUAD_OCR_1].get("expected"),
+               _p_sq[_rt10.NODE_SQUAD_OCR_2].get("expected")]))
     check("★squad=3: expected 是字符串列表（写数字 MAA 认不出）",
-          all(isinstance(x, str) for e in _any10 for x in e.get("expected", [])),
-          str([type(x).__name__ for e in _any10 for x in e.get("expected", [])]))
+          all(isinstance(x, str)
+              for k in (_rt10.NODE_SQUAD_OCR_1, _rt10.NODE_SQUAD_OCR_2)
+              for x in _p_sq[k]["expected"]))
+    check("squad=3: 注入只动 next 与 expected（不重建骨架，pipe 字段不被盖掉）",
+          sorted(_p_sq[_rt10.NODE_SQUAD_OCR_1].keys()) == ["expected"]
+          and sorted(_p_sq.keys()) == sorted(
+              [_rt10.NODE_CLEAR_CARDS, _rt10.NODE_SQUAD_OCR_1, _rt10.NODE_SQUAD_OCR_2]),
+          str(sorted(_p_sq.keys())))
 
-    # --- ★ 与真实 pipe 对照：项数 / roi / recognition 必须一致 ---
+    # --- ★ 与真实 pipe 对照：新版写法（具名分支节点）逐项核对 ---
     # ⚠️ pipe 文件是 **JSONC**（带 // 注释），标准 json 解析不了，先去掉注释。
     _pipe10 = Path(__file__).resolve().parent.parent.parent / (
         "assets/resource/pipeline/Endless_ref/02_Endless_plant_Choose_ref.json"
@@ -534,19 +532,25 @@ try:
     _node10 = _pj10[_rt10.NODE_SQUAD_INDEX]
     check("pipe: 切换编队序号 确实是 Or",
           _node10.get("recognition") == "Or", str(_node10.get("recognition")))
+    check("★pipe: any_of 是具名分支引用 [识别编队1, 识别编队2]",
+          _node10.get("any_of") == [_rt10.NODE_SQUAD_OCR_1, _rt10.NODE_SQUAD_OCR_2],
+          str(_node10.get("any_of")))
 
-    _real_any10 = _node10.get("any_of", [])
-    check("★pipe any_of 项数与 runtime 骨架一致（改了 pipe 要同步 _SQUAD_ANY_OF）",
-          len(_real_any10) == len(_rt10._SQUAD_ANY_OF),
-          f"pipe={len(_real_any10)} runtime={len(_rt10._SQUAD_ANY_OF)}")
-    check("★pipe any_of 的 roi 与 runtime 骨架一致",
-          [e.get("roi") for e in _real_any10] == [e.get("roi") for e in _rt10._SQUAD_ANY_OF],
-          f"pipe={[e.get('roi') for e in _real_any10]} "
-          f"runtime={[e.get('roi') for e in _rt10._SQUAD_ANY_OF]}")
-    check("★pipe any_of 的 recognition 与 runtime 骨架一致",
-          [e.get("recognition") for e in _real_any10]
-          == [e.get("recognition") for e in _rt10._SQUAD_ANY_OF],
-          str([e.get("recognition") for e in _real_any10]))
+    _sq1 = _pj10[_rt10.NODE_SQUAD_OCR_1]
+    _sq2 = _pj10[_rt10.NODE_SQUAD_OCR_2]
+    check("pipe: 识别编队1 结构（OCR + roi + 空 expected + 颜色过滤）",
+          _sq1.get("recognition") == "OCR"
+          and _sq1.get("roi") == [135, 129, 57, 167]
+          and _sq1.get("expected") == []
+          and _sq1.get("threshold") == 0.5
+          and _sq1.get("color_filter") == "无尽_过滤编队颜色",
+          str(_sq1))
+    check("pipe: 识别编队2 结构（OCR + roi + 空 expected）",
+          _sq2.get("recognition") == "OCR"
+          and _sq2.get("roi") == [132, 125, 77, 566]
+          and _sq2.get("expected") == []
+          and _sq2.get("threshold") == 0.5,
+          str(_sq2))
     check("pipe: 切换编队序号 next 指向开始战斗（跳过选卡）",
           _node10.get("next") == ["无尽挑战_选取植物_开始战斗"],
           str(_node10.get("next")))

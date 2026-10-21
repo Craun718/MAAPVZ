@@ -94,32 +94,35 @@
     "无尽_切换编队序号": {
         "recognition": "Or",
         "any_of": [
-            {
-                "recognition": "OCR",
-                "roi": [
-                    135,
-                    129,
-                    57,
-                    167
-                ],
-                "expected": [],
-                "threshold": 0.5
-            },
-            {
-                "recognition": "OCR",
-                "expected": [],
-                "threshold": 0.5,
-                "roi": [
-                    132,
-                    125,
-                    77,
-                    566
-                ]
-            }
+            "识别编队1",
+            "识别编队2"
         ],
         "action": "Click",
         "next": [
             "无尽挑战_选取植物_开始战斗"
+        ]
+    },
+    "识别编队1": {
+        "recognition": "OCR",
+        "roi": [
+            135,
+            129,
+            57,
+            167
+        ],
+        "expected": [],
+        "threshold": 0.5,
+        "color_filter": "无尽_过滤编队颜色"
+    },
+    "识别编队2": {
+        "recognition": "OCR",
+        "expected": [],
+        "threshold": 0.5,
+        "roi": [
+            132,
+            125,
+            77,
+            566
         ]
     },
     "无尽_滑动寻找编队": {

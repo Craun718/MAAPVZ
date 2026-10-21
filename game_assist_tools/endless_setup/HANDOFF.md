@@ -130,32 +130,25 @@ static/
 | pipe 节点 | 字段 | 值 |
 | --- | --- | --- |
 | `无尽挑战_识别开始战斗_清空卡牌` | `next` | `["无尽挑战_切换编队"]`（默认 `["无尽挑战_选取植物"]`） |
-| `无尽_切换编队序号` | `any_of[i].expected`（**每一项**） | `["3"]`（**字符串**；默认 `[]`） |
+| `识别编队1` / `识别编队2`（Or 的具名分支） | `expected` | `["3"]`（**字符串**；默认 `[]`） |
 
 注入点共 **4 处**：`JobSetLoad`（预计表预热）、`JobSetStage` 首次锁定、`JobSetStage` 换阵容、`_apply_table`（切表辅助）。
 
-> ⚠️⚠️ **`无尽_切换编队序号` 是 Or 节点 —— 顶层 `expected` 无效！**
+> ⚠️⚠️ **`无尽_切换编队序号` 是 Or 节点，expected 要写在具名分支上！**
 >
-> **2026-10 该节点由「1 个 any_of」改成「2 个 any_of」**，覆盖方式必须跟着改：
+> **2026-10-13 pipe 改成新版写法**：`any_of` 从「内联对象数组」改成
+> **具名节点引用** `["识别编队1", "识别编队2"]`，两个 OCR 分支独立成节点
+> （roi `135,129,57,167` 与 `132,125,77,566`，覆盖编队列表的不同显示区域，
+> 同一语义；识别编队1 另带 `color_filter: 无尽_过滤编队颜色`）。
 >
-> - **Or 的命中由各 `any_of[i]` 自己的 `expected` 决定**，节点顶层的 `expected`
->   **对 Or 节点不起作用**。
-> - 原来只往顶层写 `expected` —— 对 Or 等于**没写**，编队号永远匹配不上，
->   `无尽_切换编队序号` 永不点火，**切编队功能整体静默失效**。
-> - 现在两个 any_of（roi `135,129,57,167` 与 `132,125,77,566`，
->   覆盖编队列表的**不同显示区域**，同一语义）**都写入同一个编队号**。
-> - `squad=None` 回滚时**同样要走 any_of 清空**，只清顶层是清不掉的。
->
-> **实现方式**：`runtime.py` 用 `_SQUAD_ANY_OF` 骨架 + `_squad_any_of(expected)`
-> **重建整个 any_of 数组**，而不是只盖 `any_of[i].expected` ——
-> 不依赖 MAA 对「any_of 子项能否被 override 合并」的实现细节。
->
-> 🚨 **`_SQUAD_ANY_OF` 必须与 pipe 的 `any_of` 保持同步**（项数 / roi / recognition）。
-> 改了 pipe 不同步，注入就会把 pipe 的改动**盖回去**。
-> `selfcheck.py` 第 10 节会**自动对照真实 pipe 文件**并把不一致报出来。
->
-> 另外 pipe 文件是 **JSONC**（带 `//` 注释），用标准 `json` 读会炸，
-> 自测里先按行剥掉注释再解析。
+> - expected 长在**具名节点**自己身上，运行时注入直接覆盖
+>   `识别编队1.expected` / `识别编队2.expected` 两个字段。
+> - `override_pipeline` 是**字段级合并**：只动 `expected`，
+>   `roi / threshold / color_filter` 全以 pipe 为准 ——
+>   **改 pipe 不再需要同步任何 runtime 骨架**（旧版 `_SQUAD_ANY_OF` 已移除）。
+> - `squad=None` 回滚时**两个节点都要清空**，漏一个 = 残留旧编队号。
+> - `selfcheck.py` 第 10 节会**自动对照真实 pipe 文件**（含新版结构断言），
+>   pipe 结构变了会立刻报出来。
 
 - **未配置时会主动回滚**（把 `next` 还原成「选取植物」、`expected` 清空），
   否则从编队表切回选卡表会残留上次设置。
@@ -929,7 +922,7 @@ agent/jobset/selfcheck.py                    第 8 节 form 21 条 + 第 9 节 t
 本轮（编队注入适配 Or 节点，见 §2.1）改动文件：
 
 ```
-agent/jobset/runtime.py     _SQUAD_ANY_OF 骨架 + _squad_any_of()；
+agent/jobset/runtime.py     具名分支 expected 注入（识别编队1/2）；
                             _squad_param 改走 any_of（顶层 expected 对 Or 无效）
                             typing 补 List
 agent/jobset/selfcheck.py   第 10 节 squad 14 条（含与真实 pipe 对照的漂移检测）
