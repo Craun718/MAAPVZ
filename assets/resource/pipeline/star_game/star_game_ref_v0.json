@@ -334,9 +334,11 @@
     "点击登录_jumpback_绑定设备": {
         "recognition": "OCR",
         "expected": [
-            "绑定设备",
-            "确定"
+            "确定",
+            "绑定设备"
         ],
+        "order_by": "Expected", // 按 expected 列表顺序排序
+        "index": 0, // 取排序后的第一个结果
         "roi": [
             251,
             412,
