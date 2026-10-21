@@ -847,6 +847,73 @@ except Exception as _e14:
 
 
 # ---------------------------------------------------------------------------
+# §15 适配世界（world/sub_worlds 载入 + _check_world 校验文案）
+# ---------------------------------------------------------------------------
+print("\n== §15 适配世界校验 ==")
+try:
+    from agent.jobset import engine as _eng15
+    from agent.jobset import runtime as _rt15
+
+    # 载入：有 world/sub_worlds
+    _j15 = _eng15.JobSet({"name": "w", "world": "冰河世界",
+                          "sub_worlds": ["海盗港湾", "  ", ""],
+                          "tables": [{"from_level": 1, "lineup": {"plants": ["X"]}}]}, code="w")
+    check("world 载入", _j15.world == "冰河世界", _j15.world)
+    check("sub_worlds 载入（过滤空串）", _j15.sub_worlds == ["海盗港湾"], str(_j15.sub_worlds))
+
+    # 旧作业集（无字段）-> 空
+    _j15b = _eng15.JobSet({"name": "old", "tables": [{"from_level": 1, "lineup": {"plants": ["X"]}}]}, code="o")
+    check("旧作业集 world 为空", _j15b.world == "" and _j15b.sub_worlds == [])
+
+    # 校验文案四种情形
+    check("未标注 -> 提示重存",
+          "未标注适配世界" in _rt15._check_world(_j15b, "冰河世界"))
+    check("主世界一致 -> 通过",
+          _rt15._check_world(_j15, "冰河世界") == "🌍 世界校验通过：冰河世界")
+    check("副世界一致 -> 通过（副）",
+          "（副世界）" in _rt15._check_world(_j15, "海盗港湾"))
+    _mis = _rt15._check_world(_j15, "摩登世界")
+    check("不一致 -> ⚠️ 且含两个世界名",
+          "不一致" in _mis and "冰河世界" in _mis and "摩登世界" in _mis
+          and "海盗港湾" in _mis, _mis)
+    check("GUI 未注入世界值 -> 不比对（空提示）",
+          _rt15._check_world(_j15, "") == "")
+except Exception as _e15:
+    check("适配世界校验", False, f"{type(_e15).__name__}: {_e15}")
+
+
+# ---------------------------------------------------------------------------
+# §16 植物备注（plant_notes 载入）
+# ---------------------------------------------------------------------------
+print("\n== §16 植物备注 ==")
+try:
+    from agent.jobset import engine as _eng16
+
+    _j16 = _eng16.JobSet({"name": "n", "tables": [{"from_level": 1, "lineup": {"plants": ["X"]}}],
+                          "plant_notes": {
+                              "冰西瓜": {"tier": 5, "pendant": "闪耀雪花挂坠"},
+                              "豌豆射手": {"tier": 0, "pendant": ""},      # 全空 -> 剪除
+                              "桑葚爆破手": {"pendant": "珍稀的肥料"},        # 仅挂件
+                              "苹果迫击炮": {"tier": 3},                    # 仅阶数
+                              "仙人掌": {"costume": True},                  # 仅装扮（布尔）
+                              "坏行": "不是dict",                            # 非法 -> 跳过
+                              123: {"tier": 2},                             # 非字符串键 -> 跳过
+                          }}, code="n")
+    check("合法备注载入", _j16.plant_notes.get("冰西瓜") == {"tier": 5, "pendant": "闪耀雪花挂坠"},
+          str(_j16.plant_notes.get("冰西瓜")))
+    check("空备注剪除", "豌豆射手" not in _j16.plant_notes)
+    check("仅挂件保留", _j16.plant_notes.get("桑葚爆破手") == {"pendant": "珍稀的肥料"})
+    check("仅阶数保留", _j16.plant_notes.get("苹果迫击炮") == {"tier": 3})
+    check("仅装扮保留", _j16.plant_notes.get("仙人掌") == {"costume": True})
+    check("非法项跳过", "坏行" not in _j16.plant_notes and 123 not in _j16.plant_notes)
+
+    _j16b = _eng16.JobSet({"name": "old", "tables": [{"from_level": 1, "lineup": {"plants": ["X"]}}]}, code="o")
+    check("旧作业集 plant_notes 为空 dict", _j16b.plant_notes == {})
+except Exception as _e16:
+    check("植物备注", False, f"{type(_e16).__name__}: {_e16}")
+
+
+# ---------------------------------------------------------------------------
 print("\n" + "=" * 52)
 if FAILED:
     print(f"FAILED {len(FAILED)}: {FAILED}")

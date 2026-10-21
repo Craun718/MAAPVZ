@@ -3352,7 +3352,6 @@ function jobSlotPlants(slots) {
 
 function jobBuild() {
     jobSaveCurrentBoard();
-    const worlds = [...document.querySelectorAll('#jobWorlds input:checked')].map(cb => cb.value);
     const tables = jobTables.map((t, ti) => {
         // ★ boss 链永远用**本表自己的** boardLate 构建。
         //   以前有 inheritBoss：为 true 时拿上一张表的棋盘来建链 ——
@@ -3500,8 +3499,12 @@ function jobBuild() {
         code: jobCurrentCode(),
         name: jobCurrentName(),
         version: '1.0',            // 版本不再让用户填，固定 1.0
-        worlds,
         max_level: 149,            // 最大关卡固定 149
+        // 选择世界：主适配世界 + 副世界（运行时 JobSetLoad 与 GUI「选择世界」比对告警）
+        world: jobGetWorld(),
+        sub_worlds: jobGetSubWorlds(),
+        // 植物备注（阶数/挂件标注，仅展示；38-jobset-notes.js）
+        plant_notes: (typeof jobGetPlantNotes === 'function') ? jobGetPlantNotes() : {},
         everyN: jobGetEveryN(),    // 识别结算速率（高级设置，作用于所有组合动作）
         // 调配参数（步骤 ⚙ 弹窗）：compile.py 的 swipe_ms。
         // （动作间隔固定 0.1s = BatchSwipe 默认，不导出、不可调）

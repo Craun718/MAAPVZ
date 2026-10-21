@@ -258,7 +258,6 @@ def list_jobs():
                 d = json.load(f)
             entry['name'] = d.get('name', '')
             entry['version'] = d.get('version', '')
-            entry['worlds'] = d.get('worlds', [])
             entry['tables'] = len(d.get('tables', []) or [])
         except Exception:
             pass

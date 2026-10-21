@@ -68,6 +68,27 @@ def _log(msg: str) -> None:
     print(f"[JobSet] {msg}", file=sys.stderr, flush=True)
 
 
+def _check_world(js: JobSet, cur_world: str) -> str:
+    """适配世界校验：作业集标注的 world/sub_worlds vs GUI 选项「选择世界」当前值。
+
+    返回提示文案（"" = 无提示）。只告警不拦停 ——
+    不一致时提示拼进 JobSetLoad 的 focus 与日志，任务照常运行。
+    「当前世界」由 task/Endless_ref 的 16 个世界 case 各自 override 注入
+    （无尽挑战_加载作业集代码.custom_action_param.当前世界）。
+    """
+    if not js.world:
+        return "ℹ️ 该作业集未标注适配世界（用最新版编辑器重新保存可开启校验）"
+    if not cur_world:
+        return ""                       # 没接到 GUI 世界值（option 未注入）-> 不比
+    if cur_world == js.world:
+        return f"🌍 世界校验通过：{cur_world}"
+    if cur_world in js.sub_worlds:
+        return f"🌍 世界校验通过：{cur_world}（副世界）"
+    sub = f"（副：{'、'.join(js.sub_worlds)}）" if js.sub_worlds else ""
+    return (f"⚠️ 作业集适配世界「{js.world}」{sub}与当前选择世界「{cur_world}」不一致，"
+            "可以继续运行，但请自行鉴别")
+
+
 def _parse_param(raw: Any) -> Dict[str, Any]:
     """宽松解析 custom_action_param（可能是 dict / JSON 串 / 空）。"""
     if raw is None or raw == "":
@@ -926,7 +947,8 @@ class JobSetLoad(CustomAction):
         {
           "作业集代码": "pvz_20260926_015808",   // 缺省读 jobs/current.json
           "起始关卡": 87,                          // ★ 由 MAA option「无尽_起始关卡」填入
-          "重置": true                             // 重新开始任务 -> 清空计数器
+          "重置": true,                            // 重新开始任务 -> 清空计数器
+          "当前世界": "冰河世界"                    // ★ 由 option「选择世界」16 个 case 注入（适配世界校验）
         }
 
     ★ 「起始关卡」是**必需**的：砍掉 OCR 后关卡号只由它 + 计数器推出。
@@ -1026,12 +1048,19 @@ class JobSetLoad(CustomAction):
         # ---- 无尽局外 80 选卡（作业集级 outer_pick -> 80 选卡 custom 节点）----
         _apply_outer_pick(context, js)
 
+        # ---- 适配世界校验（不一致只告警不拦停，提示拼进 focus）----
+        cur_world = str(param.get("当前世界") or "").strip()
+        world_note = _check_world(js, cur_world)
+        if world_note:
+            _log(world_note)
+
         # ---- 用户可见 focus：已加载作业集 + 当前使用阵容 ----
         #   写在本节点（无尽挑战_加载作业集代码）上，节点完成时弹出；
         #   阵容块按预估表（与预热同口径）生成。
         table0 = js.pick_table(lv)
         _set_focus(context, NODE_LOAD,
                    f"已加载作业集：{js.name}\n"
+                   + (world_note + "\n" if world_note else "")
                    + _focus_lineup_block(table0, lv > 0 and lv % _BOSS_SNAP == 0))
 
         return _ok()

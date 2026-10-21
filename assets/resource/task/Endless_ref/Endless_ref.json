@@ -111,6 +111,11 @@
                     "pipeline_override": {
                         "无尽挑战_选择世界_埃及": {
                             "enabled": true
+                        },
+                        "无尽挑战_加载作业集代码": {
+                            "custom_action_param": {
+                                "当前世界": "神秘埃及"
+                            }
                         }
                     }
                 },
@@ -119,6 +124,11 @@
                     "pipeline_override": {
                         "无尽挑战_选择世界_海盗港湾": {
                             "enabled": true
+                        },
+                        "无尽挑战_加载作业集代码": {
+                            "custom_action_param": {
+                                "当前世界": "海盗港湾"
+                            }
                         }
                     }
                 },
@@ -127,6 +137,11 @@
                     "pipeline_override": {
                         "无尽挑战_选择世界_狂野西部": {
                             "enabled": true
+                        },
+                        "无尽挑战_加载作业集代码": {
+                            "custom_action_param": {
+                                "当前世界": "狂野西部"
+                            }
                         }
                     }
                 },
@@ -135,6 +150,11 @@
                     "pipeline_override": {
                         "无尽挑战_选择世界_功夫世界": {
                             "enabled": true
+                        },
+                        "无尽挑战_加载作业集代码": {
+                            "custom_action_param": {
+                                "当前世界": "功夫世界"
+                            }
                         }
                     }
                 },
@@ -143,6 +163,11 @@
                     "pipeline_override": {
                         "无尽挑战_选择世界_未来": {
                             "enabled": true
+                        },
+                        "无尽挑战_加载作业集代码": {
+                            "custom_action_param": {
+                                "当前世界": "未来世界"
+                            }
                         }
                     }
                 },
@@ -151,6 +176,11 @@
                     "pipeline_override": {
                         "无尽挑战_选择世界_黑暗时代": {
                             "enabled": true
+                        },
+                        "无尽挑战_加载作业集代码": {
+                            "custom_action_param": {
+                                "当前世界": "黑暗时代"
+                            }
                         }
                     }
                 },
@@ -159,6 +189,11 @@
                     "pipeline_override": {
                         "无尽挑战_选择世界_巨浪沙滩": {
                             "enabled": true
+                        },
+                        "无尽挑战_加载作业集代码": {
+                            "custom_action_param": {
+                                "当前世界": "巨浪沙滩"
+                            }
                         }
                     }
                 },
@@ -167,6 +202,11 @@
                     "pipeline_override": {
                         "无尽挑战_选择世界_冰河世界": {
                             "enabled": true
+                        },
+                        "无尽挑战_加载作业集代码": {
+                            "custom_action_param": {
+                                "当前世界": "冰河世界"
+                            }
                         }
                     }
                 },
@@ -175,6 +215,11 @@
                     "pipeline_override": {
                         "无尽挑战_选择世界_天空之城": {
                             "enabled": true
+                        },
+                        "无尽挑战_加载作业集代码": {
+                            "custom_action_param": {
+                                "当前世界": "天空之城"
+                            }
                         }
                     }
                 },
@@ -183,6 +228,11 @@
                     "pipeline_override": {
                         "无尽挑战_选择世界_失落之城": {
                             "enabled": true
+                        },
+                        "无尽挑战_加载作业集代码": {
+                            "custom_action_param": {
+                                "当前世界": "失落之城"
+                            }
                         }
                     }
                 },
@@ -191,6 +241,11 @@
                     "pipeline_override": {
                         "无尽挑战_选择世界_摇滚年代": {
                             "enabled": true
+                        },
+                        "无尽挑战_加载作业集代码": {
+                            "custom_action_param": {
+                                "当前世界": "摇滚年代"
+                            }
                         }
                     }
                 },
@@ -199,6 +254,11 @@
                     "pipeline_override": {
                         "无尽挑战_选择世界_恐龙危机": {
                             "enabled": true
+                        },
+                        "无尽挑战_加载作业集代码": {
+                            "custom_action_param": {
+                                "当前世界": "恐龙危机"
+                            }
                         }
                     }
                 },
@@ -207,6 +267,11 @@
                     "pipeline_override": {
                         "无尽挑战_选择世界_摩登世界": {
                             "enabled": true
+                        },
+                        "无尽挑战_加载作业集代码": {
+                            "custom_action_param": {
+                                "当前世界": "摩登世界"
+                            }
                         }
                     }
                 },
@@ -215,6 +280,11 @@
                     "pipeline_override": {
                         "无尽挑战_选择世界_蒸汽时代": {
                             "enabled": true
+                        },
+                        "无尽挑战_加载作业集代码": {
+                            "custom_action_param": {
+                                "当前世界": "蒸汽时代"
+                            }
                         }
                     }
                 },
@@ -223,6 +293,11 @@
                     "pipeline_override": {
                         "无尽挑战_选择世界_复兴时代": {
                             "enabled": true
+                        },
+                        "无尽挑战_加载作业集代码": {
+                            "custom_action_param": {
+                                "当前世界": "复兴时代"
+                            }
                         }
                     }
                 },
@@ -231,6 +306,11 @@
                     "pipeline_override": {
                         "无尽挑战_选择世界_童话世界": {
                             "enabled": true
+                        },
+                        "无尽挑战_加载作业集代码": {
+                            "custom_action_param": {
+                                "当前世界": "童话世界"
+                            }
                         }
                     }
                 }

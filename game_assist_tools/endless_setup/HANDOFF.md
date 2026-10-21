@@ -1,4 +1,4 @@
-﻿# MAAPVZ 作业集 / 无尽挑战 —— 交接文档
+# MAAPVZ 作业集 / 无尽挑战 —— 交接文档
 
 > 工作区：`D:\maapvz\MAAPVZ`
 > 网页端（作业集编辑器）：`game_assist_tools\endless_setup\static\`
@@ -264,7 +264,13 @@ assets\resource\pipeline\Endless_ref/03_Endless_fight\03-1Endless_fight_end\03-1
 
 ```jsonc
 {
-  "code": "...", "name": "...", "worlds": [], "max_level": 149,
+  "code": "...", "name": "...", "max_level": 149,
+  // 适配世界（2026-10-13 新增；37-jobset-world.js 弹窗编辑；运行时 JobSetLoad 校验告警）
+  "world": "冰河世界",              // 主适配世界（最佳适配）；"" / 缺省 = 未标注
+  "sub_worlds": ["海盗港湾"],       // 副适配世界（候选，可多选，与主世界互斥）
+  // 植物备注（2026-10-13 新增；38-jobset-notes.js 弹窗编辑；仅展示，运行时不消费）
+  //   costume = 布尔：是否需要装扮（🎭 模式下点植物切换，与阶数同款交互）
+  "plant_notes": { "冰西瓜": { "tier": 5, "pendant": "闪耀雪花挂坠", "costume": true } },
   "tables": [{
     "from_level": 1, "to_level": ...,
     "lineup": { "plants": [...], "mode": ..., "deck_no": ... },
