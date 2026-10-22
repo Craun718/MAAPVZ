@@ -73,6 +73,9 @@
                     "pipeline_override": {
                         "打开pvz_联想": {
                             "enabled": true
+                        },
+                        "关闭pvz_联想": {
+                            "enabled": true
                         }
                     }
                 },
@@ -80,6 +83,9 @@
                     "name": "4399",
                     "pipeline_override": {
                         "打开pvz_4399": {
+                            "enabled": true
+                        },
+                        "关闭pvz_4399": {
                             "enabled": true
                         },
                         "点击登录_寻找悬浮球": {
@@ -117,6 +123,9 @@
                         },
                         "打开pvz_小米": {
                             "enabled": true
+                        },
+                        "关闭pvz_小米": {
+                            "enabled": true
                         }
                     }
                 },
@@ -128,6 +137,9 @@
                     "pipeline_override": {
                         "打开pvz_应用宝": {
                             "enabled": true
+                        },
+                        "关闭pvz_应用宝": {
+                            "enabled": true
                         }
                     }
                 },
@@ -135,6 +147,9 @@
                     "name": "b服",
                     "pipeline_override": {
                         "打开pvz_b服": {
+                            "enabled": true
+                        },
+                        "关闭pvz_b服": {
                             "enabled": true
                         }
                     }
@@ -144,6 +159,9 @@
                     "pipeline_override": {
                         "打开pvz_荣耀": {
                             "enabled": true
+                        },
+                        "关闭pvz_荣耀": {
+                            "enabled": true
                         }
                     }
                 },
@@ -151,6 +169,9 @@
                     "name": "vivo",
                     "pipeline_override": {
                         "打开pvz_vivo": {
+                            "enabled": true
+                        },
+                        "关闭pvz_vivo": {
                             "enabled": true
                         }
                     }
@@ -160,6 +181,9 @@
                     "pipeline_override": {
                         "打开pvz_九游": {
                             "enabled": true
+                        },
+                        "关闭pvz_九游": {
+                            "enabled": true
                         }
                     }
                 },
@@ -167,6 +191,9 @@
                     "name": "OPPO",
                     "pipeline_override": {
                         "打开pvz_OPPO": {
+                            "enabled": true
+                        },
+                        "关闭pvz_OPPO": {
                             "enabled": true
                         }
                     }
@@ -176,6 +203,9 @@
                     "pipeline_override": {
                         "打开pvz_好游快报": {
                             "enabled": true
+                        },
+                        "关闭pvz_好游快报": {
+                            "enabled": true
                         }
                     }
                 },
@@ -183,6 +213,9 @@
                     "name": "百度",
                     "pipeline_override": {
                         "打开pvz_百度": {
+                            "enabled": true
+                        },
+                        "关闭pvz_百度": {
                             "enabled": true
                         }
                     }
@@ -192,6 +225,9 @@
                     "pipeline_override": {
                         "打开pvz_360": {
                             "enabled": true
+                        },
+                        "关闭pvz_360": {
+                            "enabled": true
                         }
                     }
                 },
@@ -199,6 +235,9 @@
                     "name": "华为",
                     "pipeline_override": {
                         "打开pvz_华为": {
+                            "enabled": true
+                        },
+                        "关闭pvz_华为": {
                             "enabled": true
                         },
                         "点击登录_寻找悬浮球": {
@@ -216,6 +255,9 @@
                     "pipeline_override": {
                         "打开pvz_7723": {
                             "enabled": true
+                        },
+                        "关闭pvz_7723": {
+                            "enabled": true
                         }
                     }
                 },
@@ -224,6 +266,9 @@
                     "pipeline_override": {
                         "打开pvz_taptap": {
                             "enabled": true
+                        },
+                        "关闭pvz_taptap": {
+                            "enabled": true
                         }
                     }
                 },
@@ -231,6 +276,9 @@
                     "name": "官服",
                     "pipeline_override": {
                         "打开pvz_官服": {
+                            "enabled": true
+                        },
+                        "关闭pvz_官服": {
                             "enabled": true
                         }
                     }
@@ -279,6 +327,9 @@
                     "pipeline_override": {
                         "打开pvz_自定义包": {
                             "enabled": true
+                        },
+                        "关闭pvz_自定义包": {
+                            "enabled": true
                         }
                     }
                 }
@@ -296,6 +347,9 @@
             ],
             "pipeline_override": {
                 "打开pvz_自定义包": {
+                    "package": "{包名}"
+                },
+                "关闭pvz_自定义包": {
                     "package": "{包名}"
                 }
             }
