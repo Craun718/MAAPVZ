@@ -2360,12 +2360,51 @@ body.seq-dragging-on { user-select: none; cursor: grabbing; }
 
 /* 对照幽灵图：绝对叠在格子上，不吃点击 */
 .cell { position: relative; }
-.ref-ghost {
+.ref-ghost-wrap {
     position: absolute; inset: 2px; width: calc(100% - 4px); height: calc(100% - 4px);
-    object-fit: contain; pointer-events: none; border-radius: 6px;
+    pointer-events: none; border-radius: 6px;
 }
-.ref-ghost.ref-under { opacity: .30; filter: grayscale(.35); z-index: 0; }
-.ref-ghost.ref-over  { opacity: .72; z-index: 5; }
+.ref-ghost-wrap.ref-under { opacity: .30; filter: grayscale(.35); z-index: 0; }
+.ref-ghost-wrap.ref-over  { opacity: .72; z-index: 5; }
+/* ★ 幽灵项镜像 .cell.job-nN .tag.plant.job-pK 的迷你网格：
+   同格多株（藤蔓叠种等）各就各位，不再全尺寸叠成一团（2026-10-22 UI 修复）。
+   坐标比本体小 2px（wrap 已 inset 2px），档位数对齐 job-n1..9。 */
+.ref-ghost { position: absolute; object-fit: contain; pointer-events: none; }
+.ref-ghost-wrap.ref-n1 .ref-ghost { left:1px; top:1px; width:calc(100% - 2px); height:calc(100% - 2px); }
+.ref-ghost-wrap.ref-n2 .ref-ghost,
+.ref-ghost-wrap.ref-n3 .ref-ghost,
+.ref-ghost-wrap.ref-n4 .ref-ghost { width:27px; height:27px; }
+.ref-ghost-wrap.ref-n2 .ref-ghost { top:50%; transform:translateY(-50%); }
+.ref-ghost-wrap.ref-n2 .ref-p1 { left:2px; }
+.ref-ghost-wrap.ref-n2 .ref-p2 { left:33px; }
+.ref-ghost-wrap.ref-n3 .ref-p1, .ref-ghost-wrap.ref-n4 .ref-p1 { left:2px;  top:2px; }
+.ref-ghost-wrap.ref-n3 .ref-p2, .ref-ghost-wrap.ref-n4 .ref-p2 { left:33px; top:2px; }
+.ref-ghost-wrap.ref-n3 .ref-p3, .ref-ghost-wrap.ref-n4 .ref-p3 { left:2px;  top:33px; }
+.ref-ghost-wrap.ref-n4 .ref-p4 { left:33px; top:33px; }
+.ref-ghost-wrap.ref-n5 .ref-ghost, .ref-ghost-wrap.ref-n6 .ref-ghost,
+.ref-ghost-wrap.ref-n7 .ref-ghost, .ref-ghost-wrap.ref-n8 .ref-ghost,
+.ref-ghost-wrap.ref-n9 .ref-ghost { width:17px; height:17px; }
+.ref-ghost-wrap.ref-n5 .ref-p1, .ref-ghost-wrap.ref-n6 .ref-p1,
+.ref-ghost-wrap.ref-n7 .ref-p1, .ref-ghost-wrap.ref-n8 .ref-p1,
+.ref-ghost-wrap.ref-n9 .ref-p1 { left:2px;  top:2px; }
+.ref-ghost-wrap.ref-n5 .ref-p2, .ref-ghost-wrap.ref-n6 .ref-p2,
+.ref-ghost-wrap.ref-n7 .ref-p2, .ref-ghost-wrap.ref-n8 .ref-p2,
+.ref-ghost-wrap.ref-n9 .ref-p2 { left:23px; top:2px; }
+.ref-ghost-wrap.ref-n5 .ref-p3, .ref-ghost-wrap.ref-n6 .ref-p3,
+.ref-ghost-wrap.ref-n7 .ref-p3, .ref-ghost-wrap.ref-n8 .ref-p3,
+.ref-ghost-wrap.ref-n9 .ref-p3 { left:44px; top:2px; }
+.ref-ghost-wrap.ref-n5 .ref-p4, .ref-ghost-wrap.ref-n6 .ref-p4,
+.ref-ghost-wrap.ref-n7 .ref-p4, .ref-ghost-wrap.ref-n8 .ref-p4,
+.ref-ghost-wrap.ref-n9 .ref-p4 { left:2px;  top:23px; }
+.ref-ghost-wrap.ref-n5 .ref-p5, .ref-ghost-wrap.ref-n6 .ref-p5,
+.ref-ghost-wrap.ref-n7 .ref-p5, .ref-ghost-wrap.ref-n8 .ref-p5,
+.ref-ghost-wrap.ref-n9 .ref-p5 { left:23px; top:23px; }
+.ref-ghost-wrap.ref-n6 .ref-p6, .ref-ghost-wrap.ref-n7 .ref-p6,
+.ref-ghost-wrap.ref-n8 .ref-p6, .ref-ghost-wrap.ref-n9 .ref-p6 { left:44px; top:23px; }
+.ref-ghost-wrap.ref-n7 .ref-p7, .ref-ghost-wrap.ref-n8 .ref-p7,
+.ref-ghost-wrap.ref-n9 .ref-p7 { left:2px;  top:44px; }
+.ref-ghost-wrap.ref-n8 .ref-p8, .ref-ghost-wrap.ref-n9 .ref-p8 { left:23px; top:44px; }
+.ref-ghost-wrap.ref-n9 .ref-p9 { left:44px; top:44px; }
 
 /* ============ 地图机制层（2026-10-13） ============ */
 /* 格子左上角小标记；机制层垫在格子内容最底下（insertBefore firstChild） */

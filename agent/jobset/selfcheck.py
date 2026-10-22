@@ -939,31 +939,101 @@ except Exception as _e17:
 
 
 # ---------------------------------------------------------------------------
-# §18 当前世界/起始关卡 注入信道防冲突（2026-10-22 事故规则固化）
+# §18 option 覆写冲突全量扫描（2026-10-22 事故的根源性防护）
 #
-#   GUI 的 option 会合是「同节点同字段整体替换」：两个 option 都写
-#   无尽挑战_加载作业集代码.custom_action_param，后应用的把先应用的整个
-#   字段顶掉。所以：
-#     · JobSetLoad.custom_action_param  —— 只能由「无尽_起始关卡」写
-#     · 「当前世界」改由 16 个世界 case 写到 JobSetPlan 双节点
-#       （无尽局内_过关_正赛/训练），且必须带上 pipe 里的静态键
-#       （训练模式/计数），否则整体替换会把静态键抹掉。
+#   事故根因：GUI 的 option 会合是「同节点同字段整体替换」——
+#   两个 option 都写 无尽挑战_加载作业集代码.custom_action_param 时，
+#   后应用的把先应用的**整个字段**顶掉（起始关卡/重置 被 当前世界 顶丢）。
+#
+#   这不是某一处的 bug，而是全局隐患，所以这里做**全 task 目录**机械扫描，
+#   固化两条不变量：
+#     1) 同一 task 文件内，任意 (节点, 字段) 最多只有一个可共存的 option
+#        写入者（同一 select option 的各个 case 互斥，视为一个写入者；
+#        option 级 override 与它的每个 case 都可共存，单独算一组）。
+#     2) option 写 custom_action_param 时，写入键集必须 ⊇ pipe 里该节点的
+#        静态 custom_action_param 键（否则整体替换会把静态键抹掉 ——
+#        这就是 16 个世界 case 写 Plan 节点时必须带上 训练模式/计数 的原因）。
 # ---------------------------------------------------------------------------
-print("\n== §18 注入信道防冲突（当前世界/起始关卡 分信道） ==")
+print("\n== §18 option 覆写冲突全量扫描（同节点同字段唯一写入者） ==")
 try:
     import json as _json18
-    import re as _re18
 
-    _ROOT18 = Path(__file__).resolve().parent.parent.parent
-    _TASK18 = _ROOT18 / "assets" / "resource" / "task" / "Endless_ref" / "Endless_ref.json"
-    _PIPE18 = _ROOT18 / "assets" / "resource" / "pipeline" / "Endless_ref" / "03_Endless_fight" / "0300Endless_fight.json"
+    _R18 = Path(__file__).resolve().parent.parent.parent
 
-    def _load_jsonc(p):
-        raw = p.read_text(encoding="utf-8")
-        raw = "\n".join(ln for ln in raw.splitlines() if not ln.lstrip().startswith("//"))
-        return _json18.loads(raw)
+    def _jsonc18(p):
+        _raw = p.read_text(encoding="utf-8")
+        _raw = "\n".join(ln for ln in _raw.splitlines()
+                         if not ln.lstrip().startswith("//"))
+        return _json18.loads(_raw)
 
-    _t18 = _load_jsonc(_TASK18)
+    # ---- pipe 节点静态 param 索引：node -> 静态 custom_action_param 键集 ----
+    _pipe_static: dict = {}
+    for _pf in (_R18 / "assets" / "resource" / "pipeline").rglob("*.json"):
+        try:
+            _pj = _jsonc18(_pf)
+        except Exception:
+            continue
+        if not isinstance(_pj, dict):
+            continue
+        for _nd, _body in _pj.items():
+            if isinstance(_body, dict):
+                _sp = _body.get("custom_action_param")
+                if isinstance(_sp, dict):
+                    _pipe_static.setdefault(_nd, set()).update(_sp.keys())
+    check("pipe 静态 param 索引建立", len(_pipe_static) > 0,
+          f"{len(_pipe_static)} 个节点带静态 param")
+
+    # ---- 逐 task 文件扫描 option 写入（同文件内的 option 才可能共存）----
+    _bad_all: list = []
+    _lost_all: list = []
+    _scanned = 0
+    for _tf in sorted((_R18 / "assets" / "resource" / "task").rglob("*.json")):
+        try:
+            _tj = _jsonc18(_tf)
+        except Exception:
+            continue
+        _opts = _tj.get("option") if isinstance(_tj, dict) else None
+        if not isinstance(_opts, dict):
+            continue
+        _scanned += 1
+        _writes: dict = {}        # (node, field) -> {写入组: 规范化写入值}
+        _param_writes: list = []  # (node, 写入组, 写入键集)
+        for _oname, _o in _opts.items():
+            if not isinstance(_o, dict):
+                continue
+            _ovs = [(f"{_oname}$option级", _o.get("pipeline_override"))]
+            for _c in _o.get("cases") or []:
+                if isinstance(_c, dict):
+                    _ovs.append((_oname, _c.get("pipeline_override")))
+            for _wgroup, _ov in _ovs:
+                if not isinstance(_ov, dict):
+                    continue
+                for _nd, _fields in _ov.items():
+                    if not isinstance(_fields, dict):
+                        continue
+                    for _fld, _val in _fields.items():
+                        _writes.setdefault((_nd, _fld), {})[_wgroup] = \
+                            _json18.dumps(_val, ensure_ascii=False, sort_keys=True)
+                        if _fld == "custom_action_param" and isinstance(_val, dict):
+                            _param_writes.append((_nd, _wgroup, set(_val.keys())))
+        for (_nd, _fld), _groups in sorted(_writes.items()):
+            # 同值多写 = 无害冗余（replace 后值不变）；**异值多写** 才是事故同款
+            if len(_groups) > 1 and len(set(_groups.values())) > 1:
+                _bad_all.append(f"{_tf.name}: {_nd}.{_fld} <- {sorted(_groups)}")
+        for _nd, _wg, _keys in _param_writes:
+            _need = _pipe_static.get(_nd)
+            if _need:
+                _miss = _need - _keys
+                if _miss:
+                    _lost_all.append(
+                        f"{_tf.name}: {_wg} 写 {_nd} 丢了静态键 {sorted(_miss)}")
+    check(f"全 task（{_scanned} 个文件）：(节点,字段) 无异值多写入者",
+          not _bad_all, "；".join(_bad_all[:5]))
+    check("option 写 custom_action_param 均保住 pipe 静态键",
+          not _lost_all, "；".join(_lost_all[:5]))
+
+    # ---- 本次事故的定点检查：当前世界/起始关卡 分信道 ----
+    _t18 = _jsonc18(_R18 / "assets" / "resource" / "task" / "Endless_ref" / "Endless_ref.json")
     _cases18 = _t18["option"]["无尽挑战_选择世界"]["cases"]
     check("世界 case 共 16 个", len(_cases18) == 16, f"got={len(_cases18)}")
 
@@ -971,9 +1041,8 @@ try:
     _shape_ok = True
     for _c in _cases18:
         _ov = _c.get("pipeline_override", {})
-        # 不得再碰 JobSetLoad 的 param（冲突回归）
         if "无尽挑战_加载作业集代码" in _ov:
-            _shape_ok = False
+            _shape_ok = False      # 冲突回归：世界 case 又去碰 JobSetLoad
         for _node, _tr in (("无尽局内_过关_正赛", False), ("无尽局内_过关_训练", True)):
             _prm = _ov.get(_node, {}).get("custom_action_param")
             if not isinstance(_prm, dict) \
@@ -985,24 +1054,6 @@ try:
                 _worlds18.add(_prm["当前世界"])
     check("16 case 都写 Plan 双节点且带静态键（训练模式/计数）", _shape_ok)
     check("16 case 当前世界互不相同", len(_worlds18) == 16, str(sorted(_worlds18)))
-
-    # JobSetLoad.custom_action_param 的唯一写入者 = 无尽_起始关卡
-    _writers18 = []
-    for _oname, _o in _t18.get("option", {}).items():
-        for _c in _o.get("cases", []) or []:
-            if "无尽挑战_加载作业集代码" in (_c.get("pipeline_override") or {}):
-                _writers18.append(f"{_oname}/{_c.get('name')}")
-        if "无尽挑战_加载作业集代码" in (_o.get("pipeline_override") or {}):
-            _writers18.append(_oname)
-    check("JobSetLoad param 唯一写入者=无尽_起始关卡",
-          _writers18 == ["无尽_起始关卡"], str(_writers18))
-
-    # pipe 侧静态键同步守卫：case 里照抄的静态值必须等于 pipe 原值
-    _p18 = _load_jsonc(_PIPE18)
-    check("pipe 正赛节点静态键未被改动（否则 16 case 要同步）",
-          _p18["无尽局内_过关_正赛"]["custom_action_param"] == {"训练模式": False, "计数": True})
-    check("pipe 训练节点静态键未被改动（否则 16 case 要同步）",
-          _p18["无尽局内_过关_训练"]["custom_action_param"] == {"训练模式": True, "计数": True})
 except Exception as _e18:
     check("注入信道防冲突", False, f"{type(_e18).__name__}: {_e18}")
 

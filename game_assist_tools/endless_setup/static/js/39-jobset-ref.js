@@ -88,7 +88,7 @@ function jobRefClear() {
 
 // ---- 幽灵渲染（每次棋盘重绘后由 jobRenderCurrentBoard 调用）----
 function jobRenderRefGhosts() {
-    document.querySelectorAll('.ref-ghost').forEach(function (e) { e.remove(); });
+    document.querySelectorAll('.ref-ghost-wrap').forEach(function (e) { e.remove(); });
     if (!jobRef || !Array.isArray(jobRef.grid)) return;
     const gridId = (typeof jobIsBossBoard === 'function' && jobIsBossBoard()) ? 'gridLate' : 'gridEarly';
     const gridEl = document.getElementById(gridId);
@@ -98,18 +98,26 @@ function jobRenderRefGhosts() {
         if (!Number.isFinite(r) || !Number.isFinite(c)) return;
         const row = jobRef.grid[r];
         const items = (row && row[c]) || [];
-        items.forEach(function (it) {
-            if (!it || it.type !== 'plant' || !it.plant || !it.plant.img) return;
+        // 同格可能多株（藤蔓叠种等）：套一个迷你网格容器，镜像本体的
+        // job-n 分档（ref-n1..9），各就各位，不全尺寸叠成一团。
+        const plants = items.filter(function (it) {
+            return it && it.type === 'plant' && it.plant && it.plant.img;
+        }).slice(0, 9);   // 对齐本体 JOB_CELL_MAX_MARKS 上限
+        if (!plants.length) return;
+        const wrap = document.createElement('div');
+        wrap.className = 'ref-ghost-wrap ref-' + jobRef.mode + ' ref-n' + plants.length;
+        plants.forEach(function (it, i) {
             const g = document.createElement('img');
-            g.className = 'ref-ghost ref-' + jobRef.mode;
+            g.className = 'ref-ghost ref-p' + (i + 1);
             g.src = it.plant.img;
             g.alt = it.plant.name || '';
             g.title = '对照：' + (it.plant.name || '');
             g.onerror = function () { this.remove(); };
-            // 层序语义：under = 插到格子最前（垫在本表内容下）；over = 追加（压在上层）
-            if (jobRef.mode === 'under') cellEl.insertBefore(g, cellEl.firstChild);
-            else cellEl.appendChild(g);
+            wrap.appendChild(g);
         });
+        // 层序语义：under = 插到格子最前（垫在本表内容下）；over = 追加（压在上层）
+        if (jobRef.mode === 'under') cellEl.insertBefore(wrap, cellEl.firstChild);
+        else cellEl.appendChild(wrap);
     });
 }
 
