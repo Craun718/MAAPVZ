@@ -168,8 +168,8 @@ def _prewarm_for_level(context: Context, js: JobSet, lv: int) -> bool:
     #     （10-12 起）—— 自动计数收号后界面永远停在「当前关卡：1」，
     #     且 plan_table_index 不落账导致 Plan 每关保守换阵。
     _lv_msg = f"当前关卡：{lv}"
-    _set_focus(context, NODE_BATTLE_START, _lv_msg)
-    _set_focus(context, NODE_START_FIGHT, _lv_msg)
+    _set_focus(context, NODE_PLAN_NORMAL, _lv_msg)
+    _set_focus(context, NODE_PLAN_TRAINING, _lv_msg)
 
     _STATE["plan_table_index"] = table.index
 
@@ -307,6 +307,13 @@ NODE_SQUAD_INDEX = "无尽_切换编队序号"
 # 「切换编队序号」Or 的具名分支：expected 注入目标
 NODE_SQUAD_OCR_1 = "识别编队1"
 NODE_SQUAD_OCR_2 = "识别编队2"
+
+# JobSetPlan 双节点（pipe: 03_Endless_fight/0300Endless_fight.json）——
+# 「当前关卡」focus 挂这两个节点：每关只在点「继续挑战」时精确触发一次，
+# 每关恰好一条 [Record]。别挂开始战斗节点：focus 走事件携带制，
+# 节点的每次识别/动作事件都复读 focus（2026-10-22 用户反馈一关连跳多条）。
+NODE_PLAN_NORMAL = "无尽局内_过关_正赛"
+NODE_PLAN_TRAINING = "无尽局内_过关_训练"
 
 # ---- 无尽局外 80 选卡（作业集级 outer_pick 的注入目标）----
 # pipe 文件：06_Endless_80plant_choose/0601~0603
@@ -663,7 +670,8 @@ def _fail() -> CustomAction.RunResult:
     return CustomAction.RunResult(success=False)
 
 
-# 「识别开始战斗」节点名 —— 状态行刷新（_set_focus）的挂载点
+# 「识别开始战斗」节点名 —— 跳转骨架等仍引用；「当前关卡」focus 已改挂
+# NODE_PLAN_NORMAL/TRAINING（每关一次，不再用它做状态行挂载点）
 NODE_START_FIGHT = "无尽挑战_识别开始战斗"
 
 
@@ -672,8 +680,8 @@ NODE_START_FIGHT = "无尽挑战_识别开始战斗"
 #
 # ★ 计数说明（2026-10-09 清理）：过关计数已并入 JobSetPlan（计数=true 参数），
 #   原 JobSetTick 节点 / _tick_param() / JobSetStatus 包装类均已删除 ——
-#   状态行刷新由 _set_focus(NODE_START_FIGHT) 直接实现，日志播报由 JobSetPlan 内
-#   tr.status_line() 直接输出，都不再需要独立节点。
+#   状态行刷新由 _set_focus(NODE_PLAN_NORMAL/TRAINING) 直接实现，
+#   日志播报由 JobSetPlan 内 tr.status_line() 直接输出，都不再需要独立节点。
 #
 # ★ 这是把「换阵容」从局内搬到局外的**主路径**。
 #
@@ -894,11 +902,12 @@ class JobSetPlan(CustomAction):
             _inject_artifact(context, table, upcoming_boss, lineup_changed=False)
 
         # ---- 用户可见 focus：关卡号（每关）+ 换表时的「当前使用」块 ----
-        #   关卡号挂在两个「开始战斗」节点上（未变/变化两分支必走其一），
-        #   覆盖掉 pipe 里静态的「boss关」focus；
+        #   关卡号挂在 Plan 双节点上（本节点自己，每关精确触发一次 ->
+        #   每关恰好一条 [Record]；2026-10-22 起不再挂开始战斗节点 ——
+        #   focus 走事件携带制，那边每个识别/动作事件都复读，一关连跳多条）。
         #   「当前使用」块挂在「清空卡牌」上（只有变化分支才跑到）。
         #   换表但阵容相同被跳过（未变分支，清空卡牌不跑）时，
-        #   把阵容块并到「开始战斗」的关卡号消息前面，保证换表一定有提示。
+        #   把阵容块并到关卡号消息前面，保证换表一定有提示。
         switched = used is None or used != table.index
         if switched:
             block = _focus_lineup_block(table, upcoming_boss)
@@ -908,8 +917,8 @@ class JobSetPlan(CustomAction):
         lv_msg = f"当前关卡：{lv}"
         if block and not need:
             lv_msg = block + "\n" + lv_msg
-        _set_focus(context, NODE_BATTLE_START, lv_msg)
-        _set_focus(context, NODE_START_FIGHT, lv_msg)
+        _set_focus(context, NODE_PLAN_NORMAL, lv_msg)
+        _set_focus(context, NODE_PLAN_TRAINING, lv_msg)
 
         # ---- 翻闸门（每次都写，避免残留上一次的判断）----
         #
