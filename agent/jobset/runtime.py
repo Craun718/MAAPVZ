@@ -160,19 +160,22 @@ def _prewarm_for_level(context: Context, js: JobSet, lv: int) -> bool:
     #   预热可能被调两次（Load / AutoCount），走签名会被第二次还原，必须 force。
     _inject_artifact(context, table, _pw_boss, lineup_changed=True, force=True)
 
-    # ★ v3：种植链也在预热时灌好（能量豆节点直灌，出手零中转）。
-    #   灌不进去（老 compiled）= 整条任务必然空转 -> 让调用方决定 fail-fast。
-    return _inject_fight(context, table)
-
     # ★ 回写「当前关卡」focus：MFA 界面显示的关卡号来自这两个节点的 focus，
     #   而 focus 平时只有 JobSetPlan（过关计数时）才写 —— 打完 149 开新一轮时
     #   自动计数把计数器重置成 1，但 focus 不还就继续显示旧的 149
     #   （issue #203：界面在第 1 关、计数器显示 149；阵容选择不受影响）。
+    #   ★ 2026-10-22 修复：这三行曾被 v3 fail-fast 的 return 顶成死代码
+    #     （10-12 起）—— 自动计数收号后界面永远停在「当前关卡：1」，
+    #     且 plan_table_index 不落账导致 Plan 每关保守换阵。
     _lv_msg = f"当前关卡：{lv}"
     _set_focus(context, NODE_BATTLE_START, _lv_msg)
     _set_focus(context, NODE_START_FIGHT, _lv_msg)
 
     _STATE["plan_table_index"] = table.index
+
+    # ★ v3：种植链也在预热时灌好（能量豆节点直灌，出手零中转）。
+    #   灌不进去（老 compiled）= 整条任务必然空转 -> 让调用方决定 fail-fast。
+    return _inject_fight(context, table)
 
 
 def _ensure_tracker(param: Dict[str, Any]) -> LevelTracker:

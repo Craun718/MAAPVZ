@@ -2406,6 +2406,19 @@ body.seq-dragging-on { user-select: none; cursor: grabbing; }
 .ref-ghost-wrap.ref-n8 .ref-p8, .ref-ghost-wrap.ref-n9 .ref-p8 { left:23px; top:44px; }
 .ref-ghost-wrap.ref-n9 .ref-p9 { left:44px; top:44px; }
 
+/* ============ 右上角「关闭后台」（悬停浮出） ============ */
+/* 平时低透明度常驻（可点）；鼠标探到右上角热区时完全显形 */
+#shutdownWrap { position: fixed; top: 0; right: 0; z-index: 10100; padding: 10px 10px 22px 22px; }
+#shutdownBtn {
+    opacity: .35; transition: opacity .15s;
+    background: #dc2626; color: #fff; border: none; border-radius: 8px;
+    padding: 6px 12px; font-size: 12px; cursor: pointer;
+    box-shadow: 0 2px 10px rgba(220, 38, 38, .35);
+}
+#shutdownWrap:hover #shutdownBtn { opacity: 1; }
+#shutdownBtn:hover { background: #b91c1c; }
+#shutdownBtn:disabled { background: #94a3b8; cursor: default; }
+
 /* ============ 地图机制层（2026-10-13） ============ */
 /* 格子左上角小标记；机制层垫在格子内容最底下（insertBefore firstChild） */
 .mech-mark {

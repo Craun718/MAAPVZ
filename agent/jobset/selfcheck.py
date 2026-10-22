@@ -984,6 +984,12 @@ try:
           f"{len(_pipe_static)} 个节点带静态 param")
 
     # ---- 逐 task 文件扫描 option 写入（同文件内的 option 才可能共存）----
+    # 已确认的历史隐患（用户 2026-10-22 决定「不用管」）——留着扫描能力，
+    # 只豁免这两条已知项；新的异值多写照样 FAIL。
+    _KNOWN_BAD18 = {
+        ("get_gold_coins.json", "星系_进入世界.next"),        # 装备街机神器 vs 需要刷的关卡
+        ("Secret_realm.json", "地宫2无尽_第一关_寻找8槽.template"),  # 藤蔓植物 vs 远程植物
+    }
     _bad_all: list = []
     _lost_all: list = []
     _scanned = 0
@@ -1018,7 +1024,8 @@ try:
                             _param_writes.append((_nd, _wgroup, set(_val.keys())))
         for (_nd, _fld), _groups in sorted(_writes.items()):
             # 同值多写 = 无害冗余（replace 后值不变）；**异值多写** 才是事故同款
-            if len(_groups) > 1 and len(set(_groups.values())) > 1:
+            if len(_groups) > 1 and len(set(_groups.values())) > 1 \
+                    and (_tf.name, f"{_nd}.{_fld}") not in _KNOWN_BAD18:
                 _bad_all.append(f"{_tf.name}: {_nd}.{_fld} <- {sorted(_groups)}")
         for _nd, _wg, _keys in _param_writes:
             _need = _pipe_static.get(_nd)

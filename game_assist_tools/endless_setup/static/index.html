@@ -864,6 +864,23 @@
     </div>
 </div>
 
+<!-- ============ 右上角「关闭后台」（悬停浮出） ============ -->
+<div id="shutdownWrap"
+     data-tooltip="关闭后端进程，下次打开需要重新开启编辑器；更新 MAAPVZ 后也需要重新打开编辑器"
+     data-tooltip-delay="200">
+    <button id="shutdownBtn" type="button">✕ 关闭后台</button>
+</div>
+<script>
+document.getElementById('shutdownBtn').addEventListener('click', async function () {
+    const b = this;
+    b.disabled = true;
+    b.textContent = '关闭中…';
+    try { await fetch('/shutdown', { method: 'POST' }); } catch (e) { /* 进程已死连接断开，正常 */ }
+    b.textContent = '✓ 后端已关闭（本页可直接关）';
+    document.title = '后端已关闭';
+});
+</script>
+
 
 <!-- 脚本：按依赖顺序依次加载（01..14 选项树编辑器，20..29 作业集编辑器） -->
 <script src="/static/js/01-options.js"></script>
