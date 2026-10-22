@@ -260,6 +260,29 @@ def _reco_text(argv: Any) -> Optional[str]:
     return None
 
 
+def _reco_all_texts(reco: Any) -> List[str]:
+    """把一次 OCR 识别详情里的**全部**候选文本按 best > filtered > all 顺序去重拿出。
+
+    ★ 2026-10-22 实锤：关卡号的数字偶发被 OCR 成字母（日志里出现过
+      「第NUM}关」）——best 烂了不代表 filtered/all 里没有带数字的候选，
+      全扫一遍再判死刑。
+    """
+    texts: List[str] = []
+    if reco is None:
+        return texts
+    cands = []
+    best = getattr(reco, "best_result", None)
+    if best is not None:
+        cands.append(best)
+    cands.extend(getattr(reco, "filtered_results", None) or [])
+    cands.extend(getattr(reco, "all_results", None) or [])
+    for r in cands:
+        t = getattr(r, "text", None)
+        if t and str(t) not in texts:
+            texts.append(str(t))
+    return texts
+
+
 # ---------------------------------------------------------------------------
 # 切换编队（用编队代替选卡）
 #
@@ -314,6 +337,10 @@ NODE_SQUAD_OCR_2 = "识别编队2"
 # 节点的每次识别/动作事件都复读 focus（2026-10-22 用户反馈一关连跳多条）。
 NODE_PLAN_NORMAL = "无尽局内_过关_正赛"
 NODE_PLAN_TRAINING = "无尽局内_过关_训练"
+
+# 「自动计数」节点（pipe: 01_Endless_plant_ref.json）——OCR 主界面「第X关」。
+# JobSetAutoCount 首帧解析失败时会用这个名字自行重截重试。
+NODE_AUTO_COUNT = "无尽挑战_自动计数"
 
 # ---- 无尽局外 80 选卡（作业集级 outer_pick 的注入目标）----
 # pipe 文件：06_Endless_80plant_choose/0601~0603
@@ -1117,17 +1144,52 @@ class JobSetAutoCount(CustomAction):
     ★ 设完关卡必须**重新预热**选卡/编队：JobSetLoad 预热时计数器可能还是
       option 里的「起始关卡」（甚至 0），预热的表不一定是要打的表。
 
-    ★ 解析失败**不致命**：保留计数器原值、日志告警、流程继续 ——
-      这样「手动填起始关卡」的用法即使路过本节点也不受影响。
+    ★ 语义（2026-10-22 用户定稿）：计数器初值 = option「起始关卡」；
+      流程路过本节点且 OCR 读出数字 -> 覆盖成主界面真实关卡。
+      读不出（数字被 OCR 成字母，实锤「第NUM}关」）-> 全候选扫描 +
+      重截重试 3 次，仍不行才保持 option 兜底值（不致命，流程继续）。
     """
 
     def run(self, context: Context, argv) -> Any:
-        text = _reco_text(argv)
-        lv = _parse_level_text(text or "")
+        # ---- 1) 解析关卡号：先吃 argv 的识别详情（全部候选），不行就重截重试 ----
+        #   ★ 2026-10-22 实锤：数字偶发被 OCR 成字母（「第NUM}关」），
+        #     单帧识别烂了 -> 自动计数覆盖不了 option 的「起始关卡」。
+        #     期望语义：计数器初值 = option 起始关卡；自动计数读出数字就覆盖。
+        #     所以解析失败时重截重试（屏幕动画微动，重试有机会读出数字）；
+        #     重试也全灭 -> 保持 option 兜底值，不算故障。
+        text = ""
+        lv = None
+        for t in _reco_all_texts(getattr(argv, "reco_detail", None)):
+            text = text or t
+            lv = _parse_level_text(t)
+            if lv is not None:
+                text = t
+                break
+        if lv is None:
+            import time as _time
+            for attempt in range(3):
+                try:
+                    _time.sleep(0.3)
+                    image = context.tasker.controller.post_screencap().wait().get()
+                    reco = context.run_recognition(NODE_AUTO_COUNT, image)
+                except Exception as e:
+                    _log(f"⚠️ 自动计数：重试 {attempt + 1}/3 识别异常"
+                         f"（{type(e).__name__}: {e}）")
+                    continue
+                for t in _reco_all_texts(reco):
+                    text = text or t
+                    lv = _parse_level_text(t)
+                    if lv is not None:
+                        text = t
+                        break
+                if lv is not None:
+                    _log(f"📟 自动计数：首帧没读出数字，重试第 {attempt + 1} 次成功")
+                    break
         if lv is None:
             cur = _STATE.get("tracker")
-            _log(f"⚠️ 自动计数：识别文本「{text}」里没解析出关卡号"
-                 f" -> 保持计数器原值（{cur.count if cur else 0}）")
+            _log(f"⚠️ 自动计数：识别文本「{text}」里没解析出关卡号（含重试 3 次）"
+                 f" -> 保持计数器原值（{cur.count if cur else 0}"
+                 f"{'，即 option 起始关卡兜底' if cur and cur.count else ''}）")
             return _ok()
 
         tr = _ensure_tracker({})

@@ -622,6 +622,27 @@ try:
 
     _argv12c = _NS12(reco_detail=None)
     check("reco: 无识别详情 -> None", _rt12._reco_text(_argv12c) is None)
+
+    # _reco_all_texts：best 烂了（数字被 OCR 成字母，实锤「第NUM}关」）时
+    # 还能从 filtered/all 候选里捞出带数字的文本
+    _reco12d = _NS12(
+        best_result=_NS12(text="第NUM}关"),
+        filtered_results=[_NS12(text="第NUM}关"), _NS12(text="47")],
+        all_results=[_NS12(text="无尽挑战")])
+    _texts12d = _rt12._reco_all_texts(_reco12d)
+    check("全候选: 去重保序", _texts12d == ["第NUM}关", "47", "无尽挑战"])
+    _lv12d = None
+    for _t in _texts12d:
+        _lv12d = _rt12._parse_level_text(_t)
+        if _lv12d is not None:
+            break
+    check("全候选: best 烂 -> filtered 兜底解析出 47", _lv12d == 47)
+    check("全候选: None -> 空表", _rt12._reco_all_texts(None) == [])
+    _reco12e = _NS12(best_result=_NS12(text="第NUM}关"),
+                     filtered_results=[], all_results=[])
+    check("全候选全烂 -> 解析不出（走重试/兜底）",
+          all(_rt12._parse_level_text(_t) is None
+              for _t in _rt12._reco_all_texts(_reco12e)))
 except Exception as _e12:
     check("自动计数解析", False, f"{type(_e12).__name__}: {_e12}")
 
@@ -1063,6 +1084,52 @@ try:
     check("16 case 当前世界互不相同", len(_worlds18) == 16, str(sorted(_worlds18)))
 except Exception as _e18:
     check("注入信道防冲突", False, f"{type(_e18).__name__}: {_e18}")
+
+
+# ---------------------------------------------------------------------------
+print("\n=== 19. settle 等待结算时长挂在收尾链节点自己（非候选节点）===")
+# 历史 bug：等待结算时长曾覆写到「继续挑战/继续训练」候选节点身上 ——
+# MAA 的 timeout 语义是「当前节点轮询自己 next 列表」，候选身上的 timeout
+# 根本不会被读到，用户设 1.5e9 ms 也照样 20s 超时任务失败（2026-10-22 实锤）。
+try:
+    _seg19 = [{"key": "card1", "slot": "1", "type": "plant",
+               "cells": ["格子2_3"], "waits": []}]
+
+    def _mk19(after, settle_ms):
+        raw = {
+            "from_level": 1,
+            "lineup": {"plants": ["大喷菇"]},
+            "slots": {"1": "大喷菇"},
+            "endAfterAction": after,
+            "endSettleMs": settle_ms,
+            "non_boss": {
+                "once_chain": [], "loop_chain": _seg19, "end_chain": _seg19,
+            },
+        }
+        return _cpl8j.build_fight_override(_eng.Table(raw, 0), False,
+                                           _coords, 10, 80, None)
+
+    _ovr19, _cn19 = _mk19("settle", 1500000000)
+    _endn19 = (_cn19.get("end") or {}).get("node")
+    check("settle: 收尾链节点存在", bool(_endn19), repr(_cn19))
+    check("settle: timeout 写在收尾链节点自己身上",
+          bool(_endn19) and _ovr19.get(_endn19, {}).get("timeout") == 1500000000,
+          repr(_ovr19.get(_endn19)))
+    check("settle: 候选节点（继续挑战/继续训练）不再被覆写",
+          "无尽局内_继续挑战" not in _ovr19 and "无尽训练_继续训练" not in _ovr19,
+          str([k for k in _ovr19 if "继续" in k]))
+    check("settle: 收尾链 next = [继续挑战, 失败]",
+          bool(_endn19) and _ovr19.get(_endn19, {}).get("next")
+          == ["无尽局内_继续挑战", "无尽挑战_失败"],
+          repr(_ovr19.get(_endn19, {}).get("next")))
+
+    _ovr19b, _cn19b = _mk19("sub", 1500000000)
+    _endn19b = (_cn19b.get("end") or {}).get("node")
+    check("非 settle: 收尾链节点不带 timeout（默认 20s 语义不变）",
+          bool(_endn19b) and "timeout" not in _ovr19b.get(_endn19b, {}),
+          repr(_ovr19b.get(_endn19b)))
+except Exception as _e19:
+    check("settle 等待结算时长挂载点", False, f"{type(_e19).__name__}: {_e19}")
 
 
 # ---------------------------------------------------------------------------
