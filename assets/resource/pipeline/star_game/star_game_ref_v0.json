@@ -358,6 +358,8 @@
         "focus": "点击开始游戏",
         "next": [
             "点击登录_寻找悬浮球",
+            "[JumpBack]定位_菊花",
+            "[JumpBack]定位_服务器通讯中",
             "定位_主界面",
             "开始游戏_识别进度",
             "[JumpBack]点击登录_jumpback_绑定设备",
@@ -436,6 +438,8 @@
         "action": "Click",
         "next": [
             "开始游戏_存档覆盖",
+            "[JumpBack]定位_菊花",
+            "[JumpBack]定位_服务器通讯中",
             "定位_主界面",
             "[JumpBack]定位_公告类"
         ]
@@ -448,6 +452,8 @@
         "action": "Click",
         "next": [
             "开始游戏_存档覆盖",
+            "[JumpBack]定位_菊花",
+            "[JumpBack]定位_服务器通讯中",
             "定位_主界面",
             "[JumpBack]定位_公告类"
         ]
@@ -461,6 +467,8 @@
         "action": "Click",
         "post_delay": 5000,
         "next": [
+            "[JumpBack]定位_菊花",
+            "[JumpBack]定位_服务器通讯中",
             "定位_主界面",
             "[JumpBack]定位_公告类"
         ]

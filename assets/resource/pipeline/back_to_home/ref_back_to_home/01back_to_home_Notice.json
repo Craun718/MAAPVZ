@@ -6,6 +6,8 @@
         ],
         "action": "Click",
         "next": [
+            "[JumpBack]定位_菊花",
+            "[JumpBack]定位_服务器通讯中",
             "定位_主界面",
             "[JumpBack]定位_公告类"
         ]

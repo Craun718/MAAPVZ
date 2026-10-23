@@ -69,6 +69,17 @@
             "description": "选择你的渠道服，该选项还会与关闭悬浮窗强关联，且不与自定义包名冲突",
             "cases": [
                 {
+                    "name": "官服",
+                    "pipeline_override": {
+                        "打开pvz_官服": {
+                            "enabled": true
+                        },
+                        "关闭pvz_官服": {
+                            "enabled": true
+                        }
+                    }
+                },
+                {
                     "name": "联想",
                     "pipeline_override": {
                         "打开pvz_联想": {
@@ -268,17 +279,6 @@
                             "enabled": true
                         },
                         "关闭pvz_taptap": {
-                            "enabled": true
-                        }
-                    }
-                },
-                {
-                    "name": "官服",
-                    "pipeline_override": {
-                        "打开pvz_官服": {
-                            "enabled": true
-                        },
-                        "关闭pvz_官服": {
                             "enabled": true
                         }
                     }

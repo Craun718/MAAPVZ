@@ -19,5 +19,27 @@
         "next": [
             "关闭公告"
         ]
+    },
+    "定位_菊花": {
+        "recognition": "TemplateMatch",
+        "template": [
+            "back_to_home/ref_backtohome/妙趣横生的菊花才受大众喜爱.png"
+        ],
+        "post_delay": 3000
+    },
+    "定位_服务器通讯中": {
+        "recognition": "OCR",
+        "expected": [
+            "服务器通讯中",
+            "服务",
+            "服"
+        ],
+        "roi": [
+            462,
+            216,
+            339,
+            127
+        ],
+        "post_delay": 3000
     }
 }
