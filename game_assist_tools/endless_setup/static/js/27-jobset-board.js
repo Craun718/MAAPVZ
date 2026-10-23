@@ -3405,7 +3405,8 @@ function jobBuild() {
             // ★ 编队切换：lineupMode='deck' 时把编队号写进 squad（1..6）。
             //   运行时（agent/jobset/runtime.py 的 _inject_squad）读到后：
             //     · 「清空卡牌」的 next 改成「无尽挑战_切换编队」
-            //     · Or 具名分支「识别编队1/识别编队2」的 expected 改成这个数字
+            //     · custom 节点「无尽_选择编队」的 custom_action_param.目标编队
+            //       改成这个数字（2026-10-23 起：SelectPlants 编队选择闭环模式）
             //   于是「选卡」整段被跳过，直接切编队开打。
             //   'plants' 模式写 null，让运行时把上面两个字段还原（避免残留）。
             squad: (t.lineupMode === 'deck' && t.deckNo) ? Number(t.deckNo) : null,

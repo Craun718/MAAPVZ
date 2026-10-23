@@ -300,36 +300,33 @@ def _reco_all_texts(reco: Any) -> List[str]:
 #   无尽挑战_切换编队                (OCR 识别到「配队」-> Click)
 #        └─ next: ["无尽_过滤编队颜色"]
 #   无尽_过滤编队颜色                (ColorMatch 找蓝色 -> DoNothing)
-#        └─ next: ["无尽_切换编队序号", "无尽_滑动寻找编队"]
-#   无尽_切换编队序号                (Or + 两个 any_of OCR -> Click)
+#        └─ next: ["无尽_确认在编队界面"]
+#   无尽_确认在编队界面              (OCR「植物编队」)
+#        └─ next: ["无尽_选择编队"]
+#   无尽_选择编队                    (Custom: SelectPlants 编队选择模式)
 #        └─ next: ["无尽挑战_选取植物_开始战斗"]     <- 跳过选卡，直接开战
 #
 # 所以运行时要改的只有两个字段：
 #   1) 「清空卡牌」的 next  -> ["无尽挑战_切换编队"]   （默认是 ["无尽挑战_选取植物"]）
-#   2) 「切换编队序号」的 expected -> ["3"]            （默认是 []）
+#   2) 「无尽_选择编队」的 custom_action_param.目标编队 -> 编队号
 #
 # ★ 「确认自己在选卡界面」由「清空卡牌」那个 OCR 节点天然保证：
 #   它认到「清空卡牌」才会 Click 并走 next。认不到 -> OCR 超时 -> 不会误点编队。
 #   所以这里不需要额外加识别节点。
 #
-# ★★ 「切换编队序号」是 **Or 节点**（2026-10-13 pipe 新版写法）：
-#   any_of 里是**具名节点引用** ["识别编队1", "识别编队2"]，两个 OCR 节点的
-#   roi 不同（135,129,57,167 与 132,125,77,566，覆盖编队列表的不同显示区域），
-#   expected 长在这两个**具名节点**自己身上。
-#   所以注入直接改「识别编队1/识别编队2」的 expected 即可 ——
-#   override_pipeline 是**字段级合并**，roi / threshold / color_filter
-#   仍以 pipe 为准，改 pipe 无需再同步任何 runtime 骨架。
-#   （旧版 any_of 内联对象时代的 _SQUAD_ANY_OF 骨架已随这次改版移除。）
+# ★★ 2026-10-23 重写：编队选择改为 SelectPlants 的「编队选择」custom 模式
+#   （闭环：整列 OCR -> 点击 -> 白字核对 -> 回弹重试），旧 Or 具名分支节点
+#   「切换编队序号 / 识别编队1 / 识别编队2 / 滑动寻找编队」已退役 ——
+#   旧写法的死穴是「目标编队=当前编队时数字渲染变色，OCR 永认不出 -> 死循环」。
+#   识别几何（整列 roi [132,125,77,566]、滑动向量）继承进 custom 内部。
 # ---------------------------------------------------------------------------
 
 # pipe 节点名（与 02_Endless_plant_Choose_ref.json 一一对应）
 NODE_CLEAR_CARDS = "无尽挑战_识别开始战斗_清空卡牌"
 NODE_CHOOSE_PLANTS = "无尽挑战_选取植物"
 NODE_SWITCH_SQUAD = "无尽挑战_切换编队"
-NODE_SQUAD_INDEX = "无尽_切换编队序号"
-# 「切换编队序号」Or 的具名分支：expected 注入目标
-NODE_SQUAD_OCR_1 = "识别编队1"
-NODE_SQUAD_OCR_2 = "识别编队2"
+# 编队选择 custom 节点（SelectPlants 编队选择模式）：目标编队号注入它的 param
+NODE_SQUAD_PICK = "无尽_选择编队"
 
 # JobSetPlan 双节点（pipe: 03_Endless_fight/0300Endless_fight.json）——
 # 「当前关卡」focus 挂这两个节点：每关只在点「继续挑战」时精确触发一次，
@@ -646,29 +643,29 @@ def _inject_artifact(context: Context, table, is_boss: bool,
     except Exception as e:
         _log(f"注入神器流程失败（{type(e).__name__}: {e}）")
 
-# 编队号注入目标 = Or 的两个具名分支节点「识别编队1/2」的 expected。
-# override 是字段级合并：只动 expected，roi / threshold / color_filter 全留 pipe 原值。
+# 编队号注入目标 = custom 节点「无尽_选择编队」的 custom_action_param.目标编队。
+# override 是字段级合并：整个 custom_action_param 字段替换（编队选择模式
+# 只认 编队选择/目标编队 两个键，其余全走内置缺省）。
 
 
 def _squad_param(squad: Optional[int]) -> Dict[str, Any]:
     """把编队号翻成一份 pipeline_override。
 
-    squad 为 None -> 回滚成「选卡」分支（把 next 和 expected 都还原）。
+    squad 为 None -> 回滚成「选卡」分支（next 还原 + 目标编队清 0）。
     这样从「编队表」切回「选卡表」时不会残留上一次的编队设置。
+    （目标编队=0 时节点本来就走不到 —— 清空卡牌.next 已还原成选卡；
+      清零只是防万一被别的链碰到的卫生措施。）
     """
     if squad is None:
         return {
             NODE_CLEAR_CARDS: {"next": list(NEXT_PICK_PLANTS)},
-            # ★ 两个具名分支节点都要清空，漏一个 = 残留旧编队号。
-            NODE_SQUAD_OCR_1: {"expected": []},
-            NODE_SQUAD_OCR_2: {"expected": []},
+            NODE_SQUAD_PICK: {"custom_action_param": {
+                "编队选择": True, "目标编队": 0}},
         }
     return {
         NODE_CLEAR_CARDS: {"next": [NODE_SWITCH_SQUAD]},
-        # expected 必须是**字符串列表**（OCR 的比对格式）；
-        # 写成数字 MAA 会当成非法 expected，识别永不命中。
-        NODE_SQUAD_OCR_1: {"expected": [str(squad)]},
-        NODE_SQUAD_OCR_2: {"expected": [str(squad)]},
+        NODE_SQUAD_PICK: {"custom_action_param": {
+            "编队选择": True, "目标编队": int(squad)}},
     }
 
 
