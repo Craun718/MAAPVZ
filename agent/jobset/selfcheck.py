@@ -551,6 +551,47 @@ except Exception as _e10:
 
 
 # ---------------------------------------------------------------------------
+print("\n=== 10b. 闸门 next 双写同步（pipe 0300 vs runtime 常量）===")
+#
+# 背景（2026-10-23 实锤）：用户在 pipe 的 跳转_未变/跳转_变化 的 next 尾部
+# 加了 [JumpBack]无尽挑战_jumpback_继续挑战，但 runtime 的 _JUMP_*_ORIG /
+# _JUMP_*_ART 四份硬编码清单没带 —— _inject_artifact 每关整表替换 next，
+# JumpBack 被抹掉。pipe 与 runtime 任何一边改了闸门 next，这里立刻报。
+try:
+    import json as _json10b
+    import re as _re10b
+    from agent.jobset import runtime as _rt10b
+
+    _pipe10b = Path(__file__).resolve().parent.parent.parent / (
+        "assets/resource/pipeline/Endless_ref/03_Endless_fight/0300Endless_fight.json"
+    )
+    _pj10b = _json10b.loads(
+        _re10b.sub(r"//[^\n]*", "", _pipe10b.read_text(encoding="utf-8")))
+    _jb = "[JumpBack]无尽挑战_jumpback_继续挑战"
+
+    _pipe_same = _pj10b[_rt10b.NODE_JUMP_SAME]["next"]
+    _pipe_diff = _pj10b[_rt10b.NODE_JUMP_DIFF]["next"]
+    check("pipe: 两个闸门 next 尾部都带 JumpBack 继续挑战",
+          _pipe_same[-1] == _jb and _pipe_diff[-1] == _jb,
+          f"未变尾={_pipe_same[-1]} 变化尾={_pipe_diff[-1]}")
+    check("★同步: runtime _JUMP_SAME_ORIG == pipe 未变闸门 next",
+          _rt10b._JUMP_SAME_ORIG == _pipe_same,
+          f"runtime={_rt10b._JUMP_SAME_ORIG} pipe={_pipe_same}")
+    check("★同步: runtime _JUMP_DIFF_ORIG == pipe 变化闸门 next",
+          _rt10b._JUMP_DIFF_ORIG == _pipe_diff,
+          f"runtime={_rt10b._JUMP_DIFF_ORIG} pipe={_pipe_diff}")
+    check("换神器分支清单也带 JumpBack 尾件",
+          _rt10b._JUMP_SAME_ART[-1] == _rt10b.JB_CONTINUE
+          and _rt10b._JUMP_DIFF_ART[-1] == _rt10b.JB_CONTINUE,
+          f"{_rt10b._JUMP_SAME_ART} / {_rt10b._JUMP_DIFF_ART}")
+    check("pipe: JumpBack 目标节点存在且是 OCR",
+          _pj10b[_rt10b.NODE_JUMPBACK_CONTINUE].get("recognition") == "OCR",
+          str(_pj10b.get(_rt10b.NODE_JUMPBACK_CONTINUE)))
+except Exception as _e10b:
+    check("squad: 闸门同步检查", False, f"{type(_e10b).__name__}: {_e10b}")
+
+
+# ---------------------------------------------------------------------------
 print("\n=== 11. boss 判定防染色（91 关误判回归保护）===")
 #
 # 背景：链首节点 param 被预编译注入覆盖成 {}，跨关时只能靠 state；

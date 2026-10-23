@@ -454,8 +454,16 @@ NODE_SUPPLY = "无尽局内_补给"
 NODE_SUPPLY_CONFIRM = "神器补给_确定"
 NODE_DONE = "无尽挑战_完成"
 NODE_149 = "无尽挑战_149点击开始挑战"
-_JUMP_SAME_ORIG = [NODE_SUPPLY, NODE_BATTLE_START, NODE_149, NODE_DONE]
-_JUMP_DIFF_ORIG = [NODE_SUPPLY, NODE_CLEAR_CARDS, NODE_DONE]
+# 闸门 next 的尾件（pipe 0300 里用户加的 JumpBack）：识别「继续训练」，
+# 链走完跳回闸门。⚠️ 下面四个清单尾部都必须带它 —— override 是整表替换，
+# 漏一个 = 那个分支每关把 JumpBack 抹掉（2026-10-23 实锤踩过）。
+NODE_JUMPBACK_CONTINUE = "无尽挑战_jumpback_继续挑战"
+JB_CONTINUE = "[JumpBack]" + NODE_JUMPBACK_CONTINUE
+_JUMP_SAME_ORIG = [NODE_SUPPLY, NODE_BATTLE_START, NODE_149, NODE_DONE, JB_CONTINUE]
+_JUMP_DIFF_ORIG = [NODE_SUPPLY, NODE_CLEAR_CARDS, NODE_DONE, JB_CONTINUE]
+# 换神器分支的闸门 next（插在 ENTRY 之后、其余同原值）
+_JUMP_SAME_ART = [NODE_SUPPLY, NODE_ARTIFACT_PICK, NODE_149, NODE_DONE, JB_CONTINUE]
+_JUMP_DIFF_ART = [NODE_SUPPLY, NODE_ARTIFACT_PICK, NODE_DONE, JB_CONTINUE]
 _SUPPLY_CONFIRM_ORIG = [NODE_BATTLE_START, NODE_SUPPLY_CONFIRM]
 _ARTIFACT_PICK_ORIG = {
     "recognition": "OCR",
@@ -626,8 +634,8 @@ def _inject_artifact(context: Context, table, is_boss: bool,
         #   阵容也变了 -> 清空卡牌（走完整选卡）；没变 -> 直接开始战斗
         close_next = [NODE_CLEAR_CARDS if lineup_changed else NODE_BATTLE_START]
         context.override_pipeline({
-            NODE_JUMP_SAME: {"next": [NODE_SUPPLY, NODE_ARTIFACT_PICK, NODE_149, NODE_DONE]},
-            NODE_JUMP_DIFF: {"next": [NODE_SUPPLY, NODE_ARTIFACT_PICK, NODE_DONE]},
+            NODE_JUMP_SAME: {"next": list(_JUMP_SAME_ART)},
+            NODE_JUMP_DIFF: {"next": list(_JUMP_DIFF_ART)},
             NODE_START_OCR: {"next": [NODE_ARTIFACT_PICK]},
             NODE_SUPPLY_CONFIRM: {"next": [NODE_ARTIFACT_PICK, NODE_SUPPLY_CONFIRM]},
             NODE_ARTIFACT_PICK: dict(_ARTIFACT_PICK_ORIG),
