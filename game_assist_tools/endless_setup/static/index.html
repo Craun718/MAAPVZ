@@ -763,8 +763,8 @@
     </div>
     <div class="end-params-row" id="earlyEndLoopsRow" style="display:none;">
         <label>循环链重复：</label>
-        <input type="number" id="earlyEndLoopCount" min="1" step="1" value="3">
-        <span style="font-size:11px;color:#94a3b8;">次后直接进收尾链（期间不识别收尾）</span>
+        <input type="number" id="earlyEndLoopCount" min="0" step="1" value="3">
+        <span style="font-size:11px;color:#94a3b8;">次后直接进收尾链（期间不识别收尾；0 = 循环链只跑 1 次就收尾）</span>
     </div>
     <div class="end-params-row">
         <label>收尾超时后动作：</label>

@@ -83,7 +83,7 @@ function jobNewTable() {
         //   用户调过的话新表接着用，免得每张表都重调一遍。
         if (last.endType === 'loops') t.endType = 'loops';
         if (typeof last.endPostDelay === 'number') t.endPostDelay = last.endPostDelay;
-        if (typeof last.endLoopCount === 'number' && last.endLoopCount >= 1) t.endLoopCount = last.endLoopCount;
+        if (typeof last.endLoopCount === 'number' && last.endLoopCount >= 0) t.endLoopCount = last.endLoopCount;
         if (last.endAfterAction === 'restart' || last.endAfterAction === 'settle') t.endAfterAction = last.endAfterAction;
         if (typeof last.endSettleMs === 'number') t.endSettleMs = last.endSettleMs;
         if (last.endSubAction === 'once' || last.endSubAction === 'end') t.endSubAction = last.endSubAction;

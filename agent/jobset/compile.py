@@ -339,7 +339,9 @@ def build_fight_override(
     if end_type not in ("detect", "loops"):
         end_type = "detect"
     end_post_delay = _num(table.raw.get("endPostDelay"), 15000)
-    end_loop_count = int(min(999, max(1, _num(table.raw.get("endLoopCount"), 3))))
+    # ★ N = 首圈之后的额外重复次数（循环链首圈不经门）：0 合法 = 只跑首圈直接
+    #   收尾。本变量仅作文档/兜底语义，计数门实际读 table.raw["endLoopCount"]。
+    end_loop_count = int(min(999, max(0, _num(table.raw.get("endLoopCount"), 3))))
     end_after_action = str(table.raw.get("endAfterAction") or "sub").strip()
     end_settle_ms = _num(table.raw.get("endSettleMs"), 15000)
     end_sub_action = str(table.raw.get("endSubAction") or "loop").strip()

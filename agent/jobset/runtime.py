@@ -1365,11 +1365,16 @@ class JobSetFight(CustomAction):
             loop_node_name = CHAIN_NODE_TPL.format(kind=KIND_CN["loop"])
             _compiled_n = (table.raw.get("compiled") or {}).get("normal") or {}
             if end_node_name in _compiled_n:
+                # ★ N 的语义 = 「首圈之后的额外重复次数」：循环链首圈不经门
+                #   （单次链直灌循环链），跑完首圈回来才第一次进门。
+                #   数到 N+1 次进门掰向收尾 => 总圈数 = N+1。
+                #   N=0 合法：首圈跑完第一次进门就掰向收尾（用户 2026-10-23
+                #   要求：循环链最少执行一次后进行收尾）。
                 try:
                     n_max = int(table.raw.get("endLoopCount") or 3)
                 except (TypeError, ValueError):
                     n_max = 3
-                n_max = max(1, n_max)
+                n_max = max(0, n_max)
                 gate_key = f"{table.index}@{lv}"
                 if _STATE.get("loop_gate_key") != gate_key:
                     _STATE["loop_gate_key"] = gate_key

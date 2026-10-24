@@ -1163,6 +1163,50 @@ except Exception as _e19:
 
 
 # ---------------------------------------------------------------------------
+print("\n=== 20. loops 收尾计数门允许 0（0 = 循环链只跑首圈直接收尾）===")
+# 计数语义 = 首圈之后的额外重复次数（循环链首圈不经门，单次链直灌循环链）：
+# 进门 N+1 次掰向收尾 => 总圈数 = N+1。N=0 -> 首圈回来第一次进门就收尾。
+# 改前 runtime/编辑器全是 min=1 钳制，没法表达「只跑一圈」（2026-10-23）。
+try:
+    _seg20 = [{"key": "card1", "slot": "1", "type": "plant",
+               "cells": ["格子2_3"], "waits": []}]
+    _raw20 = {
+        "from_level": 1,
+        "lineup": {"plants": ["大喷菇"]},
+        "slots": {"1": "大喷菇"},
+        "endType": "loops", "endLoopCount": 0,
+        "non_boss": {
+            "once_chain": [], "loop_chain": _seg20, "end_chain": _seg20,
+        },
+    }
+    _ovr20, _cn20 = _cpl8j.build_fight_override(
+        _eng.Table(_raw20, 0), False, _coords, 10, 80, None)
+    _loopn20 = (_cn20.get("loop") or {}).get("node")
+    check("loops收尾: 循环链节点存在", bool(_loopn20), repr(_cn20))
+    _loopnext20 = _ovr20.get(_loopn20, {}).get("next") or []
+    check("loops收尾: 循环链回圈走计数门（循环种植）",
+          bool(_loopn20) and _loopnext20[-1] == "无尽局内_循环种植",
+          repr(_loopnext20))
+    check("loops收尾: 计数门节点灌了 计数门 参数",
+          (_ovr20.get("无尽局内_循环种植", {})
+           .get("custom_action_param", {}).get("计数门")) is True,
+          repr(_ovr20.get("无尽局内_循环种植")))
+    check("loops收尾: 循环链 next 不带收尾检测（数圈说了算）",
+          not any("收尾" in str(x) for x in _loopnext20), repr(_loopnext20))
+    # 钳制回归保护：runtime 计数门不再把 0 钳成 1
+    _rtsrc20 = (Path(__file__).resolve().parent / "runtime.py").read_text(
+        encoding="utf-8")
+    check("runtime 计数门钳制允许 0",
+          "max(0, n_max)" in _rtsrc20 and "max(1, n_max)" not in _rtsrc20)
+    _html20 = (Path(__file__).resolve().parent.parent.parent
+               / "game_assist_tools/endless_setup/static/index.html")
+    check("编辑器 循环链重复 输入框 min=0",
+          'id="earlyEndLoopCount" min="0"' in _html20.read_text(encoding="utf-8"))
+except Exception as _e20:
+    check("loops 收尾计数门 0 语义", False, f"{type(_e20).__name__}: {_e20}")
+
+
+# ---------------------------------------------------------------------------
 print("\n" + "=" * 52)
 if FAILED:
     print(f"FAILED {len(FAILED)}: {FAILED}")

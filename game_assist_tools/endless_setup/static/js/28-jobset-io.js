@@ -313,7 +313,7 @@ function jobApplyLoaded(job, code) {
         // 收尾参数（仅普通关；endLastPostDelay 已删除，等待结算改用节点 timeout）
         if (t.endType !== 'loops') t.endType = 'detect';
         if (typeof t.endPostDelay !== 'number') t.endPostDelay = 15000;
-        if (!(typeof t.endLoopCount === 'number' && t.endLoopCount >= 1)) t.endLoopCount = 3;
+        if (!(typeof t.endLoopCount === 'number' && t.endLoopCount >= 0)) t.endLoopCount = 3;
         if (t.endAfterAction !== 'restart' && t.endAfterAction !== 'settle') t.endAfterAction = 'sub';
         if (typeof t.endSettleMs !== 'number') t.endSettleMs = 15000;
         if (t.endSubAction !== 'once' && t.endSubAction !== 'end') t.endSubAction = 'loop';
