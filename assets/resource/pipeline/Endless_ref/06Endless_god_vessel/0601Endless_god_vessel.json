@@ -74,6 +74,9 @@
             754,
             180
         ],
+        "threshold": [
+            0.9
+        ],
         "action": "Click",
         "post_delay": 1000,
         "next": [

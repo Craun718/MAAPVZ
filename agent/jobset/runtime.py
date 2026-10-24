@@ -1371,7 +1371,11 @@ class JobSetFight(CustomAction):
                 #   N=0 合法：首圈跑完第一次进门就掰向收尾（用户 2026-10-23
                 #   要求：循环链最少执行一次后进行收尾）。
                 try:
-                    n_max = int(table.raw.get("endLoopCount") or 3)
+                    # ★ 不能写 `get(...) or 3`：endLoopCount=0 是合法值，
+                    #   `0 or 3` 会被假值吞成 3（2026-10-24 实测：设 0
+                    #   结果循环链一直跑）—— 只有「缺省 None」才回退 3。
+                    _raw_n = table.raw.get("endLoopCount")
+                    n_max = int(_raw_n) if _raw_n is not None else 3
                 except (TypeError, ValueError):
                     n_max = 3
                 n_max = max(0, n_max)

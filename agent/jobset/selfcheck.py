@@ -1193,15 +1193,78 @@ try:
           repr(_ovr20.get("无尽局内_循环种植")))
     check("loops收尾: 循环链 next 不带收尾检测（数圈说了算）",
           not any("收尾" in str(x) for x in _loopnext20), repr(_loopnext20))
-    # 钳制回归保护：runtime 计数门不再把 0 钳成 1
+    # 钳制回归保护：runtime 计数门不再把 0 钳成 1，
+    # 也不再用 `get(...) or 3` 的假值写法（0 or 3 == 3，0 会被吞掉 ——
+    # 2026-10-24 实测：设 0 结果循环链一直跑）。
     _rtsrc20 = (Path(__file__).resolve().parent / "runtime.py").read_text(
         encoding="utf-8")
     check("runtime 计数门钳制允许 0",
           "max(0, n_max)" in _rtsrc20 and "max(1, n_max)" not in _rtsrc20)
+    check("runtime 计数门不吃假值（无 `or 3` 吞 0）",
+          'endLoopCount") or 3' not in _rtsrc20)
     _html20 = (Path(__file__).resolve().parent.parent.parent
                / "game_assist_tools/endless_setup/static/index.html")
     check("编辑器 循环链重复 输入框 min=0",
           'id="earlyEndLoopCount" min="0"' in _html20.read_text(encoding="utf-8"))
+
+    # ★ 功能性真测：驱动 JobSetFight 计数门，验证 N=0 首圈回来即收尾、
+    #   N=1 跑两圈收尾（需要 _STATE 里有作业集 + 锁定表）。
+    from types import SimpleNamespace as _Sns20
+    from agent.jobset import runtime as _rt20
+
+    class _Ctx20:
+        def __init__(self):
+            self.overrides = []
+
+        def override_pipeline(self, o):
+            self.overrides.append(o)
+
+    class _Argv20:
+        custom_action_param = {"计数门": True, "关卡": 5, "是boss关": False}
+
+    def _mk_gate_table20(n):
+        raw = {
+            "from_level": 1,
+            "lineup": {"plants": ["大喷菇"]},
+            "slots": {"1": "大喷菇"},
+            "endType": "loops", "endLoopCount": n,
+            "non_boss": {"once_chain": [], "loop_chain": _seg20,
+                         "end_chain": _seg20},
+            # 计数门分支只要求 compiled.normal 里存在收尾节点名
+            "compiled": {"normal": {"无尽挑战_组合动作_收尾": {},
+                                    "无尽挑战_组合动作_循环": {}}},
+        }
+        return _eng.Table(raw, 0)
+
+    _fight20 = _rt20.JobSetFight()
+    _gate_node20 = "无尽局内_循环种植"
+
+    def _gate_nexts20(n, entries):
+        _rt20._STATE["jobset"] = _Sns20(tables=[_mk_gate_table20(n)])
+        _rt20._STATE["table_index"] = 0
+        _rt20._STATE["locked_level"] = 5
+        _rt20._STATE.pop("loop_gate_key", None)
+        _rt20._STATE.pop("loop_gate_cnt", None)
+        ctx = _Ctx20()
+        for _ in range(entries):
+            _fight20.run(ctx, _Argv20())
+        return [o[_gate_node20]["next"][0] for o in ctx.overrides]
+
+    _seq0 = _gate_nexts20(0, 2)
+    check("★功能: N=0 第一次进门就掰向收尾",
+          _seq0 == ["无尽挑战_组合动作_收尾"] * 2,  # 第2次进门=回圈重数仍收尾
+          str(_seq0))
+    _seq1 = _gate_nexts20(1, 2)
+    check("★功能: N=1 先循环一圈再收尾（总 2 圈）",
+          _seq1 == ["无尽挑战_组合动作_循环", "无尽挑战_组合动作_收尾"],
+          str(_seq1))
+    _seq3 = _gate_nexts20(3, 4)
+    check("功能: N=3 循环三圈后第四圈收尾（总 4 圈）",
+          _seq3 == ["无尽挑战_组合动作_循环"] * 3 + ["无尽挑战_组合动作_收尾"],
+          str(_seq3))
+    for _k in ("jobset", "table_index", "locked_level",
+               "loop_gate_key", "loop_gate_cnt"):
+        _rt20._STATE.pop(_k, None)
 except Exception as _e20:
     check("loops 收尾计数门 0 语义", False, f"{type(_e20).__name__}: {_e20}")
 
