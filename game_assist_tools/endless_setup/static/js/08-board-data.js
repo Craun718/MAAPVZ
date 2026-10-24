@@ -337,6 +337,11 @@ function renderBoard(gridId, boardData, isLate) {
         gridEl.appendChild(d);
         enableTooltip(d);
     }
+    // ★ 地图机制层（40-jobset-mech.js）必须挂在 renderBoard 内部：
+    //   格子是 innerHTML 重建的，任何重绘路径都会抹掉叠加层 ——
+    //   只挂在某一条路径上就会"时有时无"（2026-10-24 实锤）。
+    //   未选主世界 / 未校对 / boss 关不刷 时为空操作。
+    if (typeof jobRenderMech === 'function') jobRenderMech(gridId, !!isLate);
 }
 
 function renderAllBoards() {
@@ -356,8 +361,7 @@ function renderAllBoards() {
 function jobRenderCurrentBoard() {
     if (jobIsBossBoard()) renderBoard('gridLate', boardLate, true);
     else renderBoard('gridEarly', boardEarly, false);
-    // 地图机制层（40-jobset-mech.js；未选主世界时为空操作）
-    if (typeof jobRenderMech === 'function') jobRenderMech();
+    // （地图机制层已并入 renderBoard 内部 —— 每次重建格子后自动补刷）
     // 表格映射对照幽灵层（39-jobset-ref.js；未开启对照时为空操作）
     if (typeof jobRenderRefGhosts === 'function') jobRenderRefGhosts();
     jobRenderEndParams();
