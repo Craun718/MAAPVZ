@@ -342,6 +342,9 @@ function renderBoard(gridId, boardData, isLate) {
     //   只挂在某一条路径上就会"时有时无"（2026-10-24 实锤）。
     //   未选主世界 / 未校对 / boss 关不刷 时为空操作。
     if (typeof jobRenderMech === 'function') jobRenderMech(gridId, !!isLate);
+    // ★ 对照幽灵层（39-jobset-ref.js）同理：每次重建后补刷，换表/切 boss
+    //   关不丢对照（2026-10-24 用户要求）；未开启对照时为空操作。
+    if (typeof jobRenderRefGhosts === 'function') jobRenderRefGhosts(gridId);
 }
 
 function renderAllBoards() {
@@ -361,9 +364,7 @@ function renderAllBoards() {
 function jobRenderCurrentBoard() {
     if (jobIsBossBoard()) renderBoard('gridLate', boardLate, true);
     else renderBoard('gridEarly', boardEarly, false);
-    // （地图机制层已并入 renderBoard 内部 —— 每次重建格子后自动补刷）
-    // 表格映射对照幽灵层（39-jobset-ref.js；未开启对照时为空操作）
-    if (typeof jobRenderRefGhosts === 'function') jobRenderRefGhosts();
+    // （地图机制层 + 对照幽灵层已并入 renderBoard 内部 —— 每次重建格子后自动补刷）
     jobRenderEndParams();
 }
 
