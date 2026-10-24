@@ -409,9 +409,14 @@ function jobResolveSteps(t, which, board) {
         for (let i = steps.length - 1; i >= 0; i--) {
             if (steps[i].kind === 'plant' && steps[i].key === k) { at = i; break; }
         }
+        // ★ 若落点会插进「」无间隔组的中段，顺延到组尾之后 —— 浮动补位
+        //   不该把组成撑散（成组是显式语义，浮动是隐式补位，隐式让路）。
+        if (at !== -1 && steps[at].noint === true) {
+            while (at + 1 < steps.length && steps[at + 1].noint === true) at++;
+        }
         const add = missing.map(function (g) {
-            // ★ 标成 synthesized：渲染时看得见（严格读取棋盘），
-            //   但存盘时不会被写回去（否则会把空槽撑成一大堆段）
+            // ★ 标成 synthesized：表示「棋盘上有、链存储里还没有」，
+            //   仅用于展示来源；存盘时由 jobStoreSteps 统一固化（存盘即所见）。
             return { kind: 'plant', key: k, gidx: g, synthesized: true };
         });
         if (at === -1) steps.push.apply(steps, add);
@@ -425,9 +430,11 @@ function jobResolveSteps(t, which, board) {
     const prev = _jobLastSteps[which];
     if (prev) jobCarryUids(steps, prev);
     _jobLastSteps[which] = steps;
-    // ★ 视图级归一化：孤立的 noint 步不带「」标记渲染（组至少 2 步）。
-    //   持久化出口（jobStoreSteps）里也有一份，这里是给「载入旧数据还没改动」兜底。
-    jobNormalizeNoint(steps);
+    // ★ 视图层**不做** noint 归一化（2026-10-24 修正）：
+    //   旧版在这里 jobNormalizeNoint(steps) 会直接改步骤对象 —— 浮动补位
+    //   落进「」组中段时，组员在视图里被当成「孤立」而被剥标记，搬运/存储
+    //   再把这些被剥过的对象写回去，无间隔组就被静默解散了。
+    //   归一化只留在持久化出口 jobStoreSteps（那里才是真改动）。
     return steps;
 }
 
@@ -506,15 +513,18 @@ function jobNormalizeNoint(steps) {
 
 // 把步骤列表存回 t[field]（压缩成旧的段格式）
 //
-// ★ 只存「链里真正记过的」内容：
-//   jobResolveSteps 会为了「严格读取棋盘」自动补上棋盘上新增的落点，
-//   那是**渲染用的视图**，不该原样写回 —— 否则每存一次盘，
-//   槽 card2..card8/feed/shovel 这些空槽都会被写成 {from:0,to:null}，
-//   把用户的链撑得又大又乱。
-//   做法：把「自动补出来的步骤」标成 synthesized，存盘时跳过它们。
+// ★ 存盘即所见（2026-10-24 修正）：
+//   旧做法把「自动补出来的落点步骤」（synthesized）在存盘时**跳过**，
+//   只有跨链搬运 ③④ 两处手动固化。结果同链拖拽/删除/成组/调参等
+//   所有其它存储路径都会把未固化落点丢回浮动位（按 seq 重排）——
+//   表现为「同链拖完顺序乱跳/拖了没反应」（水皮反馈）。
+//   现在统一在存盘前固化：链 = 棋盘的派生视图，用户在链里看到什么，
+//   存下来就是什么。（删落点走 jobDeleteStep —— 它连棋盘落点一起删，
+//   不存在「想留在棋盘但不进链」的合法状态。）
 function jobStoreSteps(t, which, board, steps) {
     const field = jobChainField(which, board);
-    const solid = (steps || []).filter(function (s) { return s && !s.synthesized; });
+    const solid = (steps || []).filter(function (s) { return !!s; });
+    solid.forEach(function (s) { if (s.synthesized) delete s.synthesized; });
     jobNormalizeNoint(solid);   // ★ 孤立 noint 步退回普通动作（组至少 2 步）
     t[field] = jobStepsToSegs(solid);
     return t[field];
@@ -779,6 +789,36 @@ function jobApplyDrop(drag, target) {
 //
 // ★ boss 关没有收尾链（运行时永不执行），boss 棋盘上禁止搬入 end。
 // ============================================================
+
+// 棋盘成员变动（mode 翻转 / 落点删除）会让同槽落点重排，所有 gidx 全漂。
+// 这个助手在**变动前**给每个植物步骤钉上落点的**对象引用**，
+// 变动后按引用刷回新 gidx —— 引用找不到的步骤（已搬走/已删除）
+// alive=false，由调用方剔除。
+//   为什么必须这么做：段存储里的 picked/noint/times 全靠 gidx 指认落点，
+//   变动后若按新 gidx 重排旧段，标记会「滑」到别的落点上
+//   （2026-10-24 fuzz 实锤：跨链搬走一株后，无间隔组标记滑到下一株头上）。
+function jobPinSteps(steps, board, which) {
+    const pins = (steps || []).map(function (s) {
+        if (!s || s.kind !== 'plant') return null;
+        const p = jobPlacementsOf(board, s.key, which)[s.gidx];
+        return p ? p.item : null;
+    });
+    return function () {
+        const alive = [];
+        (steps || []).forEach(function (s, i) {
+            if (!s || s.kind !== 'plant') { alive.push(true); return; }
+            const list = jobPlacementsOf(board, s.key, which);
+            let g = -1;
+            for (let k = 0; k < list.length; k++) {
+                if (list[k].item === pins[i]) { g = k; break; }
+            }
+            if (g === -1) alive.push(false);
+            else { s.gidx = g; alive.push(true); }
+        });
+        return alive;
+    };
+}
+
 function jobMoveStepsToChain(t, board, drag, toWhich, targetStep, after) {
     if (!drag || !t || !board) return false;
     const fromWhich = drag.which;
@@ -793,17 +833,13 @@ function jobMoveStepsToChain(t, board, drag, toWhich, targetStep, after) {
         ? drag.group.slice() : (drag.step ? [drag.step] : []);
     if (!moving.length) return false;
 
-    // 通用动作签名（相同动作在存储上不可区分，摘掉「第一个没摘过的」即等价）
-    const genSig = function (s) {
-        return s.kind + '|' + s.key
-            + '#' + (s.ms === undefined || s.ms === null ? '' : s.ms)
-            + '@' + (s.slot === undefined || s.slot === null ? '' : s.slot)
-            + 'x' + (s.times === undefined || s.times === null ? '' : s.times)
-            + 'g' + (s.comboMs === undefined || s.comboMs === null ? '' : s.comboMs)
-            + (s.comboWatch === false ? 'w0' : '')
-            // ★ 自定义动作参数不同 = 不同动作，签名必须带上参数袋
-            + '|' + (typeof jobCustomIdentity === 'function' ? jobCustomIdentity(s) : '');
-    };
+    // 通用动作签名（相同动作在存储上不可区分，摘掉「第一个没摘过的」即等价）。
+    // ★ 统一用 jobSegFingerprint：ms/slot/times/comboMs/comboWatch/noint 之外，
+    //   自定义动作参数（jobCustomIdentity）与神器快照（artName/artType/artBody）
+    //   都在指纹里。旧版本地 genSig 只认 custom —— 神器快照不进签名时，
+    //   源链有多个神器步骤「摘掉第一个匹配」必摘错（同类型互换顺序事故，
+    //   2026-10-24 水皮反馈：双点火拖完变成点同一个位置）。
+    const genSig = jobSegFingerprint;
 
     // ⓪ 预解析目标链，把落点锚翻译成「搬动后仍能找回」的形式：
     //    植物 -> 落点对象引用（mode 翻转后 gidx 会漂，引用不会）；
@@ -835,7 +871,14 @@ function jobMoveStepsToChain(t, board, drag, toWhich, targetStep, after) {
         if (st.kind === 'plant') {
             const p = jobPlacementsOf(board, st.key, fromWhich)[st.gidx];
             if (p && p.item) {
-                payload.push({ kind: 'plant', key: st.key, item: p.item, r: p.r, c: p.c });
+                const pe = { kind: 'plant', key: st.key, item: p.item, r: p.r, c: p.c };
+                // ★ 链侧参数跟着搬（连击次数/连击间隔/原子连击/无间隔组）：
+                //   它们只存在链的段上，棋盘 mode 翻转后重新解析拿不到。
+                if (st.times !== undefined && st.times !== null) pe.times = st.times;
+                if (st.comboMs !== undefined && st.comboMs !== null) pe.comboMs = st.comboMs;
+                if (st.comboWatch === false) pe.comboWatch = false;
+                if (st.noint === true) pe.noint = true;
+                payload.push(pe);
             }
         } else {
             const e = { kind: st.kind, key: st.key };
@@ -844,10 +887,21 @@ function jobMoveStepsToChain(t, board, drag, toWhich, targetStep, after) {
             if (st.times !== undefined && st.times !== null) e.times = st.times;
             if (st.comboMs !== undefined && st.comboMs !== null) e.comboMs = st.comboMs;
             if (st.comboWatch === false) e.comboWatch = false;
+            if (st.noint === true) e.noint = true;
             // ★ 自定义动作的 act/from/to/pairs 必须跟着搬 —— 不搬就剥成空壳，
             //   跨链一拖整个动作失效（参数袋全丢）。
             const _ga = jobGenericActionOfKey(st.key);
             if (_ga && _ga.id === 'custom') jobCopyCustomFields(st, e);
+            // ★ 使用神器同款：artName/artType/artBody 快照跟着搬，
+            //   否则搬过去变裸「使用神器」（2026-10-24 复现实锤）。
+            if (_ga && _ga.id === 'artifact' && typeof jobCopyArtifactFields === 'function') {
+                jobCopyArtifactFields(st, e);
+            }
+            // ★ uid 跟着走：同样的动作出现多次时，源链摘除按 uid 精确命中
+            //   「被拖的那一次」（按指纹摘第一个会把隔在中间的其它步骤顺序
+            //   弄反 —— fuzz 实锤：两个等1000中间夹个等500，拖后面那个
+            //   等1000，结果前面那个被摘了）。
+            if (st.uid !== undefined) e.uid = st.uid;
             payload.push(e);
         }
     });
@@ -855,6 +909,12 @@ function jobMoveStepsToChain(t, board, drag, toWhich, targetStep, after) {
 
     // ② 棋盘严格对应：植物落点的 mode 全部切到目标链；
     //    顺带迁移「动作后等待」的形态前缀（waitAfter 键 = 形态|槽|r,c|seq）
+    //
+    // ★ 翻转前先把源链解析出来并钉住落点引用（gidx 马上全漂，段上的
+    //   noint/times 若按新 gidx 重排会滑到别的落点上 —— fuzz 实锤）。
+    const srcSteps0 = jobResolveSteps(t, fromWhich, board);
+    const unpinSrc = jobPinSteps(srcSteps0, board, fromWhich);
+
     let nPlant = 0;
     const wField = jobWaitField();
     const waits = (t && t[wField] && typeof t[wField] === 'object') ? t[wField] : null;
@@ -862,36 +922,49 @@ function jobMoveStepsToChain(t, board, drag, toWhich, targetStep, after) {
         if (e.kind !== 'plant') return;
         e.item.mode = toWhich;
         nPlant++;
+        // ★ seq 必须按目标形态重编号：旧 seq 是「源形态」作用域的，带过去会
+        //   和目标形态里已有的落点撞号；撞号后同 seq 的先后只能靠 ord/扫描序
+        //   兜底，保存重开后 ord 按棋盘扫描序重建，段里的 picked 就指向了
+        //   另一个物理落点（fuzz 实锤：喂豆位置在重开后互换）。
+        //   目标形态内追加编号也正好匹配「新搬来的默认排在链尾」的语义。
+        e.item.seq = jobNextSeq(board, e.key, toWhich);
         if (waits) {
             const pre = fromWhich + '|' + e.key + '|' + e.r + ',' + e.c + '|';
             Object.keys(waits).forEach(function (wk) {
                 if (wk.indexOf(pre) !== 0) return;
-                // 只换形态前缀（pre 已含结尾的 |，直接拼尾巴）
-                waits[toWhich + wk.slice(fromWhich.length)] = waits[wk];
+                const v = waits[wk];
                 delete waits[wk];
+                // ★ 键尾是旧 seq，必须换新 seq 重建，否则等待永远挂不上
+                waits[jobPlacementKey(toWhich, e.key, e.r, e.c, e.item.seq)] = v;
             });
         }
     });
 
-    // ③ 源链收尾：重新解析（被搬走的植物已因 mode 变化自动消失），
-    //    再把被搬走的通用动作从源链里摘掉（它们的顺序条目还在）
+    // ③ 源链收尾：用「翻转前钉好引用」的步骤列表重建 —— 被搬走的落点
+    //    解钉时找不到引用（mode 已翻走）自动出局；noint/times 等段字段
+    //    跟着步骤对象走，不会滑位。
     const genPool = payload.filter(function (e) { return e.kind !== 'plant'; });
-    const srcRest = jobResolveSteps(t, fromWhich, board).filter(function (s) {
-        if (!s || s.kind === 'plant') return true;
+    const srcAlive = unpinSrc();
+    const srcRest = srcSteps0.filter(function (s, si) {
+        if (!s) return false;
+        if (s.kind === 'plant') return srcAlive[si];
+        // 通用动作摘除：① 优先按 uid 精确命中「被拖的那一次出现」
+        //   （同样动作出现多次且中间隔着别的步骤时，按指纹摘第一个会
+        //   把链序弄反 —— fuzz 实锤）；② uid 缺失的兜底才按指纹。
+        let i, e;
+        for (i = 0; i < genPool.length; i++) {
+            e = genPool[i];
+            if (e._cut || e.uid === undefined) continue;
+            if (s.uid === e.uid) { e._cut = true; return false; }
+        }
         const sig = genSig(s);
-        for (let i = 0; i < genPool.length; i++) {
-            if (!genPool[i]._cut && genSig(genPool[i]) === sig) {
-                genPool[i]._cut = true;
-                return false;
-            }
+        for (i = 0; i < genPool.length; i++) {
+            e = genPool[i];
+            if (e._cut || e.uid !== undefined) continue;
+            if (genSig(e) === sig) { e._cut = true; return false; }
         }
         return true;
     });
-    // ★ 存回前把 synthesized 全部固化（摘掉过滤标记）：
-    //   否则只搬过段/从未导出过的链里，「棋盘上自动补出来的落点」会在
-    //   存盘时被丢掉、重新解析时按「追加到末尾」重排 —— 用户看到的顺序
-    //   和存下来的顺序就不一样了（拖放后顺序乱跳）。固化后所见即所得。
-    srcRest.forEach(function (s) { if (s) delete s.synthesized; });
     jobStoreSteps(t, fromWhich, board, srcRest);
 
     // ④ 目标链：重新解析（搬过来的植物以 synthesized 步骤出现），
@@ -913,6 +986,11 @@ function jobMoveStepsToChain(t, board, drag, toWhich, targetStep, after) {
             }
             if (at === -1) return;
             const st = dstSteps.splice(at, 1)[0];
+            // ★ 链侧参数回填（这些只活在段上，synthesized 步骤从棋盘解析不出来）
+            if (e.times !== undefined) st.times = e.times;
+            if (e.comboMs !== undefined) st.comboMs = e.comboMs;
+            if (e.comboWatch === false) st.comboWatch = false;
+            if (e.noint === true) st.noint = true;
             inserts.push(st);
         } else {
             // ★ wait 只认 ga:wait —— 自定义动作也带 ms（滑动/长按时长），
@@ -924,8 +1002,15 @@ function jobMoveStepsToChain(t, board, drag, toWhich, targetStep, after) {
             if (e.times !== undefined) st.times = e.times;
             if (e.comboMs !== undefined) st.comboMs = e.comboMs;
             if (e.comboWatch === false) st.comboWatch = false;
+            if (e.noint === true) st.noint = true;
             // ★ 自定义动作的参数袋跟着搬（act/from/to/pairs）
             if (_ga2 && _ga2.id === 'custom') jobCopyCustomFields(e, st);
+            // ★ 使用神器同款：快照三字段（artName/artType/artBody）跟着搬，
+            //   否则跨链一拖变裸「使用神器」（2026-10-24 复现实锤：
+            //   神器·small 搬完变 神器·?）。
+            if (_ga2 && _ga2.id === 'artifact' && typeof jobCopyArtifactFields === 'function') {
+                jobCopyArtifactFields(e, st);
+            }
             inserts.push(st);
         }
     });
@@ -1293,28 +1378,37 @@ function jobBindStepCfg() {
 function jobDeleteStep(t, which, board, st) {
     if (!st) return;
 
-    if (st.kind === 'plant') {
-        const places = jobPlacementsOf(board, st.key, which);
-        const p = places[st.gidx];
-        if (p) {
-            const cell = board[p.r] && board[p.r][p.c];
-            if (Array.isArray(cell)) {
-                const i = cell.indexOf(p.item);
-                if (i !== -1) cell.splice(i, 1);
-            }
-        }
-    }
-
-    // 链里同样去掉这一项：先定位到「刚解析出来的那个步骤」，再按引用删，
-    // 这样 11 个一样的捡豆也能只删掉被点的那个。
+    // ★ 顺序极其重要：先在「删前」解析并钉住落点引用，再动棋盘。
+    //   删掉棋盘落点会重排同槽 gidx，事后才解析/按身份查找会撞车 ——
+    //   被删落点的 uid 按 key#gidx 继承到「后一位」落点头上，
+    //   结果链里删掉的是下一步（fuzz 实锤：删 2-4 实际把 3-4 挤成浮动）。
     const steps = jobResolveSteps(t, which, board);
     let idx = steps.indexOf(st);
     if (idx === -1) {
         const id = jobStepId(st);
         idx = steps.findIndex(function (x) { return jobStepId(x) === id; });
     }
-    if (idx !== -1) steps.splice(idx, 1);
-    jobStoreSteps(t, which, board, steps);
+    if (idx === -1) return;
+    const unpin = jobPinSteps(steps, board, which);
+
+    // 链里去掉这一步；植物同时从棋盘移除
+    const victim = steps[idx];
+    if (victim.kind === 'plant') {
+        const places = jobPlacementsOf(board, victim.key, which);
+        const p = places[victim.gidx];
+        if (p) {
+            const cell = board[p.r] && board[p.r][p.c];
+            if (Array.isArray(cell)) {
+                const i2 = cell.indexOf(p.item);
+                if (i2 !== -1) cell.splice(i2, 1);
+            }
+        }
+    }
+
+    // 解钉：gidx 刷成删后编号；被删落点引用找不到 -> 剔除
+    const alive = unpin();
+    const rest = steps.filter(function (s, i) { return alive[i] && i !== idx; });
+    jobStoreSteps(t, which, board, rest);
 
     jobAfterChainChange(t, which, st.kind === 'plant'
         ? '🗑️ 已从链条和棋盘上移除这一株'

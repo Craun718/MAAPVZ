@@ -616,7 +616,14 @@ def _inject_artifact(context: Context, table, is_boss: bool,
                 NODE_JUMP_SAME: {"next": list(_JUMP_SAME_ORIG)},
                 NODE_JUMP_DIFF: {"next": list(_JUMP_DIFF_ORIG)},
                 NODE_START_OCR: {"next": [NODE_CLEAR_CARDS]},
-                NODE_SUPPLY_CONFIRM: {"next": list(_SUPPLY_CONFIRM_ORIG)},
+                # ★ 补给屏（boss 关前必弹）的收尾落点必须跟随选卡逻辑：
+                #   阵容变了 -> 回「清空卡牌」走完整选卡；没变才直跳开始战斗。
+                #   旧版无条件恢复成 [开始战斗]，把「阵容变但神器没变」的
+                #   boss 关选卡整段旁路掉（2026-10-24 水皮实锤：boss 槽位
+                #   覆盖的植物永远不进卡组，换槽 6/槽 7 都一样——与槽位无关）。
+                NODE_SUPPLY_CONFIRM: {"next": (
+                    [NODE_CLEAR_CARDS, NODE_SUPPLY_CONFIRM] if lineup_changed
+                    else list(_SUPPLY_CONFIRM_ORIG))},
                 NODE_ARTIFACT_PICK: {
                     "recognition": "DirectHit",
                     "action": "DoNothing",

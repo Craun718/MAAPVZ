@@ -832,6 +832,42 @@ try:
     check("闸门修正: 签名未知不修正",
           _ga(False, True, _tSame, False, None) == (True, None))
 
+    # --- ★ 补给屏收尾必须跟随选卡逻辑（2026-10-24 水皮实锤的旁路 bug）---
+    #   boss 关前必弹补给屏，补给终点「神器补给_确定」的 pipe 原值 = [开始战斗]
+    #   —— 阵容变但神器没变时若无条件还原原值，选卡整段被旁路
+    #   （boss 槽位覆盖的植物永远不进卡组，换哪个槽都一样）。
+    def _supply_next(ctx):
+        _m = {}
+        for _p in ctx.overrides:
+            if _rt13.NODE_SUPPLY_CONFIRM in _p:
+                _m.update(_p[_rt13.NODE_SUPPLY_CONFIRM])
+        return _m.get("next")
+
+    _tNoArt = _eng13.Table({"from_level": 1, "lineup": {"plants": ["大喷菇"]},
+                            "boss_lineup": {"plants": ["菜问"]}}, 0)  # 不配神器
+    _c13 = _FakeCtx13()
+    _rt13._inject_artifact(_c13, _tNoArt, True, lineup_changed=True)
+    check("★补给旁路: 神器没变+阵容变 -> 补给确定回「清空卡牌」",
+          _supply_next(_c13) == [_rt13.NODE_CLEAR_CARDS, _rt13.NODE_SUPPLY_CONFIRM],
+          str(_supply_next(_c13)))
+    _c13 = _FakeCtx13()
+    _rt13._inject_artifact(_c13, _tNoArt, True, lineup_changed=False)
+    check("补给旁路: 神器没变+阵容没变 -> 补给确定保持原值直跳开打",
+          _supply_next(_c13) == list(_rt13._SUPPLY_CONFIRM_ORIG),
+          str(_supply_next(_c13)))
+    _tArt = _eng13.Table({"from_level": 1,
+                          "lineup": {"plants": ["大喷菇"], "artifact": "葫芦神器"},
+                          "artifact_en": "artifact_calabash",
+                          "boss_lineup": {"plants": ["菜问"], "artifact": "葫芦神器"},
+                          "boss_artifact_en": "artifact_calabash"}, 0)
+    _rt13._STATE["artifact_sig"] = None
+    _c13 = _FakeCtx13()
+    _rt13._inject_artifact(_c13, _tArt, True, lineup_changed=True)
+    check("补给旁路: 神器也变 -> 补给确定先进「选取神器」",
+          _supply_next(_c13) == [_rt13.NODE_ARTIFACT_PICK, _rt13.NODE_SUPPLY_CONFIRM],
+          str(_supply_next(_c13)))
+    _rt13._STATE["artifact_sig"] = None
+
     # --- ★ 训练模式下 _inject_lineup 永不跳过清空/选卡 ---
     # （闸门只翻 next 分支，清空卡牌节点会不会被改成空跳是 _inject_lineup 说了算）
     _rt13._STATE["training"] = True
