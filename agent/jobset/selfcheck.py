@@ -419,6 +419,39 @@ check("贯穿: 编译后 DSL 含 click:槽3切换形态 ×2",
 check("贯穿: 编译日志无「通用动作跳过」",
       not any("通用动作跳过" in m for m in _logs8j), repr(_logs8j))
 
+# 8k. ★ 相机神器（special：capture/print）编译 —— 用户实测步骤（2026-10-25）：
+#     拍照 = 点神器位置 -> 点相机复制；
+#     打印 = 点神器位置 -> 点相机粘贴 -> 隔 0.5s -> 再点相机粘贴。
+_cam_cap = _dsl.generic_dsl("artifact", _coords, None, None, None,
+                            {"artType": "special", "artName": "相机神器",
+                             "artBody": "capture"})
+check("相机拍照: 点神器位置+点相机复制",
+      _cam_cap["dsl"] == "click:神器_初始化_神器位置;click:神器_初始化_相机复制",
+      repr(_cam_cap))
+_cam_pri = _dsl.generic_dsl("artifact", _coords, None, None, None,
+                            {"artType": "special", "artName": "相机神器",
+                             "artBody": "print"})
+check("相机打印: 点神器位置+粘贴+sleep0.5+再粘贴",
+      _cam_pri["dsl"] == ("click:神器_初始化_神器位置;click:神器_初始化_相机粘贴"
+                           ";sleep:0.5;click:神器_初始化_相机粘贴"),
+      repr(_cam_pri))
+# 连击展开：打印 ×2 中间用 comboMs 隔开
+_cam_pri2 = _dsl.generic_dsl("artifact", _coords, None, None, None,
+                             {"artType": "special", "artName": "相机神器",
+                              "artBody": "print", "times": 2, "comboMs": 1000})
+check("相机打印×2: 展开重复+连击间隔",
+      _cam_pri2["dsl"] == ("click:神器_初始化_神器位置;click:神器_初始化_相机粘贴"
+                            ";sleep:0.5;click:神器_初始化_相机粘贴;sleep:1"
+                            ";click:神器_初始化_神器位置;click:神器_初始化_相机粘贴"
+                            ";sleep:0.5;click:神器_初始化_相机粘贴"),
+      repr(_cam_pri2))
+# 葫芦回归：special 体型分支不受影响
+_cal = _dsl.generic_dsl("artifact", _coords, None, None, None,
+                        {"artType": "special", "artName": "葫芦神器", "artBody": "big"})
+check("葫芦回归: 大体型仍编译为点神器+点大体型",
+      _cal["dsl"] == "click:神器_初始化_神器位置;click:神器_初始化_葫芦大体型",
+      repr(_cal))
+
 # ---------------------------------------------------------------------------
 print("\n=== 9. 落子动作「点击格子」===")
 

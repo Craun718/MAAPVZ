@@ -943,6 +943,28 @@ override 序列，枚举「闸门→开始战斗」全路径，断言阵容变�
 节点，改动时必须按「阵容是否变了」同步分流。决策层测试（§13 前半）
 测不到这层，要用图枚举测。
 
+## 10.6 相机神器（特殊类第二种，2026-10-25）
+
+相机神器与葫芦同为 `special` 类，子模式走 `artBody` 通道（与葫芦体型共用
+全部链路：编辑器体型子图标 / 段快照 / 导出 / dsl 编译）：
+
+- **子模式**：`capture`（拍照）/ `print`（打印）。
+  拍照 = 点神器位置 → 点「神器_初始化_相机复制」[707,570]；
+  打印 = 点神器位置 → 点「神器_初始化_相机粘贴」[794,570] → sleep0.5 → 再点粘贴。
+  （dsl.py `artifact` special 分支按 artBody 分流；连击展开重复，与葫芦同款。）
+- **资源**：识别模板 `god_vessel/artifact_camera/{capture,print}.png`
+  （在 bodytype/ 下 —— `/artifacts` 扫它得出 bodytypes 列表）；
+  编辑器图标 `static/artifact/artifact_camera/bodytype/{capture,print}.webp`；
+  主图 `god_vessel/artifact_camera/artifact_camera{,_1}.png`。
+- **artifacts.json**：相机 type = `special`（编辑器按 bodytypes 自动出
+  「拍照/打印」子按钮；中文名映射在 35 的 `ART_BODY_CN` 与 24 的摘要里）。
+- **坐标**：`神器_初始化_相机复制/粘贴` 与 pipe 初始化节点都是现成的。
+- selfcheck §8k 有编译断言（拍照/打印/连击展开/葫芦回归）。
+
+**加下一种特殊类神器的流程**：拆包按钮图 → god_vessel/<en>/bodytype/<key>.png
++ static/artifact/<en>/bodytype/<key>.webp → artifacts.json type=special →
+35/24 加中文名 → dsl.py special 分支加点击序列 → selfcheck 断言。
+
 ## 11. 最近验证结果（全绿基线）
 
 

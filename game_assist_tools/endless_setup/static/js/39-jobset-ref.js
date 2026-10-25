@@ -37,8 +37,13 @@ async function jobOpenRefPicker() {
         document.getElementById('refBoardSel').value = jobRef.board;
         document.getElementById('refModeSel').value = jobRef.mode;
     } else {
-        // ★ 首次打开：表下拉默认「编辑器当前表」，而不是表1（2026-10-24 用户要求）；
-        //   超出所选作业集的表数时夹到最后一表。
+        // ★ 首次打开：作业集默认「当前正在编辑的作业集」，表下拉默认「编辑器当前表」
+        //   （2026-10-24 用户要求）；超出所选作业集表数时夹到最后一表。
+        const curCode = (typeof jobCurrentCode === 'function') ? jobCurrentCode() : '';
+        if (curCode && Array.prototype.some.call(sel.options, function (o) { return o.value === curCode; })) {
+            sel.value = curCode;
+            jobRefSyncTableOptions();   // 表选项跟着作业集变
+        }
         const tsel = document.getElementById('refTableSel');
         const cur = (typeof currentTable === 'number' && Number.isFinite(currentTable))
             ? currentTable : 0;

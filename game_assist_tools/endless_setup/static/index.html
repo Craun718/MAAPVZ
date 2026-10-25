@@ -440,30 +440,21 @@
     </div>
 </div>
 
-<!-- ============ 选择世界弹窗（主世界轮播 + 副世界多选，2026-10-13） ============ -->
+<!-- ============ 选择世界弹窗（图库点选主世界，2026-10-24 简化） ============ -->
 <div id="worldPicker">
     <div class="wp-panel">
         <div class="wp-head">
             <span class="wp-dot"></span>
             <span class="wp-title">选择世界</span>
-            <span class="wp-sub">◀ ▶ 轮换世界立绘，「设为主世界」落定；下方图库点选副世界</span>
+            <span class="wp-sub">点击立绘设为主世界；其余世界自动算副世界（不显示）</span>
             <button class="wp-close" id="worldPickerClose" title="关闭">✕</button>
         </div>
         <div class="wp-body">
-            <div class="wp-carousel">
-                <button class="wp-arrow" id="wpPrev" title="上一个世界">◀</button>
-                <div class="wp-stage">
-                    <img id="wpStageImg" alt="">
-                    <div class="wp-stage-name" id="wpStageName"></div>
-                    <button class="wp-set-main" id="wpSetMain">设为主世界</button>
-                </div>
-                <button class="wp-arrow" id="wpNext" title="下一个世界">▶</button>
-            </div>
-            <div class="wp-lib-title">主世界是该作业集的最佳适配世界，副世界是候选（可多选；与主世界互斥）</div>
+            <div class="wp-lib-title">主世界是该作业集的最佳适配世界；其余世界默认都是副世界（运行时只做告警级校验）</div>
             <div class="wp-grid" id="wpSubGrid"><!-- 由 JS 渲染 --></div>
         </div>
         <div class="wp-foot">
-            <span class="wp-tip" id="wpTip">主：未选 · 副 × 0</span>
+            <span class="wp-tip" id="wpTip">主世界：未选</span>
             <button class="wp-reset" id="wpClear">✕ 清除世界标注</button>
             <button id="worldPickerDone">完成</button>
         </div>

@@ -72,9 +72,12 @@ const JOB_GENERIC_ACTIONS = [
 //   指纹 / chip 渲染认得 ga:artifact 段）。
 //   插入时【快照】当前阵容表的神器与体型：
 //     段形状 { key:'ga:artifact', ga:'artifact', artName:'葫芦神器',
-//              artType:'click|swipe|hold|special', artBody:'small|mid|big'(仅特殊类) }
+//              artType:'click|swipe|hold|special',
+//              artBody:'small|mid|big'(葫芦) | 'capture|print'(相机，2026-10-25) }
 //   编译（dsl.py）按快照翻坐标：click/hold -> 点/长按「神器_初始化_神器位置」；
-//     special(葫芦) -> 点神器位置 + sleep0.5 + 点「神器_初始化_葫芦X体型」。
+//     special(葫芦) -> 点神器位置 + 点「神器_初始化_葫芦X体型」；
+//     special(相机) 拍照 -> 点神器位置 + 点「相机复制」；
+//     special(相机) 打印 -> 点神器位置 + 点「相机粘贴」 + sleep0.5 + 点「相机粘贴」。
 const JOB_ARTIFACT_ACTION = {
     id: 'artifact', name: '使用神器', icon: '🏺', img: '',
     desc: '使用当前阵容配置的神器一次（按神器类型执行；插入时快照神器与体型）',
@@ -96,7 +99,8 @@ function jobArtifactSummary(seg) {
     if (!seg) return '';
     const nm = seg.artName || '?';
     if (seg.artType === 'special') {
-        return nm + '·' + ({ small: '小体型', mid: '中体型', big: '大体型' }[seg.artBody] || seg.artBody || '');
+        return nm + '·' + ({ small: '小体型', mid: '中体型', big: '大体型',
+                             capture: '拍照', print: '打印' }[seg.artBody] || seg.artBody || '');
     }
     return nm;
 }
