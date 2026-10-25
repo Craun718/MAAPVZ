@@ -496,14 +496,18 @@ class SelectPlants(CustomAction):
                         prev_slides = 0
                         time.sleep(post_swipe_wait / 1000.0)
 
-                # 顺路踩点对象：只盯「下一个要选的植物」（2026-10-07 用户要求：
-                #   全盯识别太慢；只盯下一个，每帧多一次模板匹配，开销可忽略）。
+                # 顺路踩点对象：盯「后面 3 个还没选的植物」
+                # （2026-10-07 只盯下一个 -> 2026-10-25 改盯下 3 个：
+                #   用户实测只盯 1 个会漏 —— 模板一晃没认出来就没踩到点，
+                #   轮到它时丢「先回顶」提示白滑很多屏；
+                #   盯 3 个每帧多 3 次模板匹配，开销仍可忽略）。
                 watch_targets = []
                 for j in range(i + 1, min(len(targets), slot_limit)):
                     if not slot_done[j]:
-                        watch_targets = [{"idx": j, "zh": targets[j]["zh"],
-                                          "templates": targets[j]["templates"]}]
-                        break
+                        watch_targets.append({"idx": j, "zh": targets[j]["zh"],
+                                              "templates": targets[j]["templates"]})
+                        if len(watch_targets) >= 3:
+                            break
 
                 placed, prev_slides = self._find_and_place(
                     context, ctl, tgt, i, search_roi, verify_roi,
