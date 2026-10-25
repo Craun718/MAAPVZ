@@ -2444,6 +2444,17 @@ function jobRenderSlots() {
                 return;
             }
             const had = t.slots[i];
+            // ★ 连续卡槽规则（2026-10-25）：只能卸最右边的已用槽 ——
+            //   中间卸掉会产生空格，游戏内卡条是紧排的，槽号会对不上。
+            //   （不自动左移：落点和链条都记槽号，静默搬槽会把它们全打乱。
+            //     想换中间的植物 = 直接点该槽选别的；想少一张 = 从最右开始卸。）
+            for (let j = i + 1; j <= 8; j++) {
+                if (t.slots[j]) {
+                    setStatus('⚠️ 不能卸 槽' + i + '：槽' + j + ' 还有植物（'
+                        + '游戏不允许中间空槽）。请从最右边开始卸，或直接点 槽' + i + ' 换植物');
+                    return;
+                }
+            }
             t.slots[i] = '';
             if (jobArmedSlot === i) jobArmedSlot = 0;
             // ★ 槽位清空了，棋盘上这个槽的落点也必须清掉 ——
@@ -3078,14 +3089,30 @@ function jobConfirmPick() {
     }
     const t = jobTables[currentTable];
     const _bossCtx = (typeof jobIsBossBoard === 'function') && jobIsBossBoard();
-    const oldName = t ? ((typeof jobSlotNameCtx === 'function') ? jobSlotNameCtx(t, currentSlotEditing, _bossCtx) : t.slots[currentSlotEditing]) : '';
+    // ★ 连续卡槽规则（2026-10-25，用户实测游戏机制）：卡条不允许中间空着一格
+    //   （槽6 有植物、槽7 空、槽8 再选 = 非法）。点空槽时若左边还有空槽，
+    //   自动落到第一个空槽 —— 和游戏内卡条的紧排行为一致；
+    //   点已占用槽 = 换植物，不重定向。
+    let targetSlot = currentSlotEditing;
+    let redirected = false;
+    if (t) {
+        const effName = function (i) {
+            return (typeof jobSlotNameCtx === 'function') ? (jobSlotNameCtx(t, i, _bossCtx) || '') : (t.slots[i] || '');
+        };
+        if (!effName(targetSlot)) {
+            for (let i = 1; i < targetSlot; i++) {
+                if (!effName(i)) { targetSlot = i; redirected = true; break; }
+            }
+        }
+    }
+    const oldName = t ? ((typeof jobSlotNameCtx === 'function') ? jobSlotNameCtx(t, targetSlot, _bossCtx) : t.slots[targetSlot]) : '';
     if (t) {
         if (_bossCtx) {
             // ★ boss 语境：写的是 boss 槽位覆盖层（不动普通关槽位）
             t.bossSlots = t.bossSlots || {};
-            t.bossSlots[currentSlotEditing] = p.name;
+            t.bossSlots[targetSlot] = p.name;
         } else {
-            t.slots[currentSlotEditing] = p.name;
+            t.slots[targetSlot] = p.name;
         }
     }
 
@@ -3094,14 +3121,14 @@ function jobConfirmPick() {
     //   不同步的话，改了槽位棋盘却还是旧植物（看起来像能放好几种植物）。
     //   boss 语境只同步 boss 棋盘（boardLate）—— 普通棋盘的该槽仍用普通关植物。
     const synced = _bossCtx
-        ? (function () { try { return jobSyncSlotPlantOnBoard(boardLate, currentSlotEditing, p.name); } catch (e) { return false; } })()
-        : jobSyncSlotPlantEverywhere(currentSlotEditing, p.name);
+        ? (function () { try { return jobSyncSlotPlantOnBoard(boardLate, targetSlot, p.name); } catch (e) { return false; } })()
+        : jobSyncSlotPlantEverywhere(targetSlot, p.name);
     if (synced) {
         try { renderAllBoards(); } catch (e) { }
         try { updatePreview(); } catch (e) { }
     }
 
-    jobArmedSlot = currentSlotEditing;   // 选完自动进入落子状态
+    jobArmedSlot = targetSlot;   // 选完自动进入落子状态
     jobClosePicker();
     jobRenderSlots();
     jobRenderSeqChains();
@@ -3109,8 +3136,9 @@ function jobConfirmPick() {
     if (typeof jobOuterRefreshBadge === 'function') jobOuterRefreshBadge();   // 局外选卡角标实时刷新（锁定集合变了）
     const st = document.getElementById('jobStatus');
     if (st) {
-        st.textContent = '已选中 槽' + currentSlotEditing + '（' + p.name + '）'
+        st.textContent = '已选中 槽' + targetSlot + '（' + p.name + '）'
             + (_bossCtx ? '（boss 关覆盖）' : '') + '，点击棋盘格子落子'
+            + (redirected ? '　|　⚠️ 卡条不允许中间空槽，已自动前移到 槽' + targetSlot : '')
             + (synced && oldName ? '　|　棋盘上的该槽已同步改为「' + p.name + '」' : '');
     }
 }
