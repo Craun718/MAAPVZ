@@ -257,6 +257,8 @@ function jobResetEditor(quiet) {
     if (typeof jobSetWorldUI === 'function') jobSetWorldUI('', []);
     // 植物备注清空
     if (typeof jobSetPlantNotes === 'function') jobSetPlantNotes({});
+    // 神器备注清空
+    if (typeof jobSetArtifactNotes === 'function') jobSetArtifactNotes({});
 
     // 阵容表表单恢复默认
     const set = function (id, v) { const el = document.getElementById(id); if (el) el.value = v; };
@@ -410,6 +412,8 @@ function jobApplyLoaded(job, code) {
     if (typeof jobSetWorldUI === 'function') jobSetWorldUI(job.world, job.sub_worlds);
     // 植物备注（旧作业集没有该字段 -> 空）
     if (typeof jobSetPlantNotes === 'function') jobSetPlantNotes(job.plant_notes);
+    // 神器备注（旧作业集没有该字段 -> 空）
+    if (typeof jobSetArtifactNotes === 'function') jobSetArtifactNotes(job.artifact_notes);
     // 局外选卡（作业集级）：旧作业集没有该字段 -> 空列表 + auto；
     // mode 为 oneclick/confirm 时 JSON 本就不存 plants，读进来也置空
     const _op = (job.outer_pick && typeof job.outer_pick === 'object') ? job.outer_pick : {};

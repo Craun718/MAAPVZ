@@ -30,6 +30,8 @@ function jobSaveLocal() {
                 rarityFilter: plantRarityFilter,
                 // 植物备注（阶数/挂件标注，38-jobset-notes.js）
                 plantNotes: (typeof jobGetPlantNotes === 'function') ? jobGetPlantNotes() : {},
+                // 神器备注（阶数标注，2026-10-25）
+                artifactNotes: (typeof jobGetArtifactNotes === 'function') ? jobGetArtifactNotes() : {},
                 // 局外选卡（作业集级；32-jobset-outer.js）
                 outerPick: (typeof jobOuterPick !== 'undefined')
                     ? { plants: (jobOuterPick.plants || []).slice(), mode: jobOuterPick.mode || 'auto', order: (jobOuterPick.order || []).slice() }
@@ -113,6 +115,8 @@ function jobLoadLocal() {
         jobSetWorldUI(m.world, m.sub_worlds);
         // 植物备注（旧缓存没有 -> 空）
         if (typeof jobSetPlantNotes === 'function') jobSetPlantNotes(data.plantNotes);
+        // 神器备注（旧缓存没有 -> 空）
+        if (typeof jobSetArtifactNotes === 'function') jobSetArtifactNotes(data.artifactNotes);
         if (typeof data.rarityFilter === 'string') plantRarityFilter = data.rarityFilter;
         // 局外选卡（作业集级）；旧缓存没有 -> 空列表 + auto
         if (typeof jobOuterPick !== 'undefined') {

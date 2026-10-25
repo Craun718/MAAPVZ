@@ -3600,6 +3600,8 @@ function jobBuild() {
         sub_worlds: jobGetSubWorlds(),
         // 植物备注（阶数/挂件标注，仅展示；38-jobset-notes.js）
         plant_notes: (typeof jobGetPlantNotes === 'function') ? jobGetPlantNotes() : {},
+        // 神器备注（阶数标注，2026-10-25；38-jobset-notes.js）
+        artifact_notes: (typeof jobGetArtifactNotes === 'function') ? jobGetArtifactNotes() : {},
         everyN: jobGetEveryN(),    // 识别结算速率（高级设置，作用于所有组合动作）
         // 调配参数（步骤 ⚙ 弹窗）：compile.py 的 swipe_ms。
         // （动作间隔固定 0.1s = BatchSwipe 默认，不导出、不可调）

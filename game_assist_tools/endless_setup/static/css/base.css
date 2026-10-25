@@ -2243,8 +2243,15 @@ body.seq-dragging-on { user-select: none; cursor: grabbing; }
 
 /* 武装条（阶数条 / 挂件条） */
 #notesPicker .np-arm {
-    display: flex; gap: 6px; align-items: center; flex-wrap: nowrap;
-    overflow-x: auto; padding: 10px 18px 0; flex: 0 0 auto;
+    display: flex; flex-direction: column; gap: 6px; align-items: stretch;
+    padding: 10px 18px 0; flex: 0 0 auto;
+}
+/* 武装条里的一行（挂件模式两行：挂件行 + 挂件阶数行；2026-10-25） */
+#notesPicker .np-arm-row {
+    display: flex; gap: 6px; align-items: center; flex-wrap: nowrap; overflow-x: auto;
+}
+#notesPicker .np-arm-row-label {
+    flex: 0 0 auto; font-size: 12px; color: #64748b; font-weight: 700;
 }
 #notesPicker .np-arm-item {
     flex: 0 0 auto; min-width: 40px; height: 40px; padding: 3px 6px;
@@ -2265,10 +2272,17 @@ body.seq-dragging-on { user-select: none; cursor: grabbing; }
 /* 神器行 */
 #notesPicker .np-art-row { display: flex; flex-wrap: wrap; gap: 10px; }
 #notesPicker .np-art {
+    position: relative;   /* 阶数角标定位用（2026-10-25 神器可调配阶数） */
     width: 84px; text-align: center; border: 2px solid #e2e8f0;
     border-radius: 10px; padding: 6px 4px 4px; background: #f8fafc;
 }
+#notesPicker .np-art.np-clickable { cursor: pointer; transition: border-color .14s, background .14s, transform .14s; }
+#notesPicker .np-art.np-clickable:hover { background: #f5f3ff; border-color: #c4b5fd; transform: translateY(-2px); }
 #notesPicker .np-art img { width: 48px; height: 48px; object-fit: contain; }
+#notesPicker .np-art .np-badge-tier {
+    bottom: 22px; right: 4px; width: 16px; height: 16px; padding: 0;
+    border-width: 1px;   /* 神器卡比植物格小，角标跟着缩（默认 24px 太大） */
+}
 
 /* 植物网格（方形缩略格，与棋盘/世界图库同 pattern） */
 #notesPicker .np-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(88px, 1fr)); gap: 10px; }
@@ -2288,6 +2302,10 @@ body.seq-dragging-on { user-select: none; cursor: grabbing; }
 }
 #notesPicker .np-badge-pendant { top: 2px; right: 2px; border: 2px solid #d97706; }
 #notesPicker .np-badge-tier { bottom: 20px; right: 2px; border: 2px solid #7c3aed; }
+/* 挂件阶数迷你角标：挂件徽章正下方，金色描边跟挂件走（2026-10-25） */
+#notesPicker .np-badge-ptier {
+    top: 24px; right: 4px; width: 16px; height: 16px; border: 1px solid #d97706;
+}
 
 #notesPicker .np-foot {
     display: flex; align-items: center; gap: 8px;
