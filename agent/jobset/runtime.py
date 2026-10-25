@@ -474,7 +474,9 @@ _SUPPLY_CONFIRM_ORIG = [NODE_BATTLE_START, NODE_SUPPLY_CONFIRM]
 _ARTIFACT_PICK_ORIG = {
     "recognition": "OCR",
     "action": "Click",
-    "next": ["无尽挑战_神器界面"],
+    # 自回跳：神器界面没认出来时重试本节点（2026-10-24 pipe 侧新增；next 是
+    # runtime 管辖字段，快照必须跟随 pipe —— selfcheck §13 有断言盯着）
+    "next": ["无尽挑战_神器界面", "无尽挑战_选取神器"],
 }
 
 # 「清空卡牌」同上：只收 runtime 会动的三个字段（阵容不变时 runtime 把它

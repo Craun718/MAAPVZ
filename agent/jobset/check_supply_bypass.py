@@ -14,7 +14,7 @@
   C. 普通关 + 补给屏不在 + 阵容变（换表）
   D. boss 关 + 补给屏在 + 阵容没变 + 神器没变（合法跳过，特性）
 
-依赖：编辑器（127.0.0.1:5000）在线，用其当前作业集（需带 boss 槽位覆盖）。
+依赖：无（自包含夹具，内置 boss 槽位覆盖；编译用真实 compile_jobset）。
 用法：.\\.venv\\Scripts\\python.exe -X utf8 agent\\jobset\\check_supply_bypass.py
 """
 import json
@@ -26,13 +26,13 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
 from agent.jobset import runtime as rt  # noqa: E402
+from agent.jobset.check_graph import strip_comments  # noqa: E402
 
-# ---------- 1) 载入真实 pipe（剥 // 注释）----------
+# ---------- 1) 载入真实 pipe（JSONC：剥 // 与 /* */ 注释，含行尾注释）----------
 PIPE_DIR = ROOT / "assets" / "resource" / "pipeline" / "Endless_ref"
 nodes = {}
 for f in list(PIPE_DIR.glob("*.json")) + list(PIPE_DIR.glob("*/*.json")):
-    raw = "\n".join(ln for ln in f.read_text(encoding="utf-8").splitlines()
-                    if not ln.lstrip().startswith("//"))
+    raw = strip_comments(f.read_text(encoding="utf-8"))
     try:
         data = json.loads(raw)
     except json.JSONDecodeError as e:
@@ -120,35 +120,80 @@ def paths_to_battle(g, entry, supply_screen, max_paths=64):
 
 
 def _load_test_job():
-    """拉正在运行的编辑器（127.0.0.1:5000）里的当前作业集。
-    拉不到就明确跳过（持久回归在 selfcheck §13，本脚本是图级深查工具，
-    依赖编辑器提供带 v3 compiled 的真实作业集）。"""
-    import urllib.request
-    with urllib.request.urlopen(
-            "http://127.0.0.1:5000/list_jobs", timeout=3) as r:
-        code = json.loads(r.read().decode("utf-8"))["current"]
-    with urllib.request.urlopen(
-            f"http://127.0.0.1:5000/load_job?code={code}", timeout=3) as r:
-        job = json.loads(r.read().decode("utf-8"))["job"]
-    print(f"（用编辑器当前作业集 {code}：{job.get('name', '')}）")
+    """自包含夹具：构造一张带 boss 槽位覆盖的作业集，用真实编译器
+    （agent.jobset.compile.compile_jobset，与编辑器 /save_job 同源）编成 v3。
+    不依赖编辑器在线、不依赖用户当前作业集长什么样。"""
+    from agent.jobset.compile import compile_jobset
+    raw = {
+        "code": "_sim_current", "name": "_sim_supply_bypass", "version": "1.0",
+        "world": "失落之城",
+        "sub_worlds": ["神秘埃及"],
+        "tables": [{
+            "levels": list(range(1, 53)),
+            "slots": {"1": "向日葵", "2": "豌豆射手"},
+            "artifact": None, "bossArtifact": None,
+            "bossSlots": {"2": "菜问"},          # boss 槽2 覆盖 -> 阵容差异
+            "bossLineupMode": "plants",
+            "lineup": {"plants": ["向日葵", "豌豆射手"], "artifact": None},
+            "boss_lineup": {"plants": ["向日葵", "菜问"], "artifact": None},
+            "supplyPicks": [{"id": "all", "img": "全部植物.png", "name": "全部植物"}],
+            "boardEarly": [], "boardLate": [],
+            "onceSegs": [], "loopSegs": [], "endSegs": [],
+            "bossOnceSegs": [], "bossLoopSegs": [], "bossEndSegs": [],
+        }, {
+            # 铺满校验要求 1-149 全覆盖 —— 第二张表只负责补位
+            "levels": list(range(53, 150)),
+            "slots": {"1": "向日葵"},
+            "lineup": {"plants": ["向日葵"], "artifact": None},
+            "boss_lineup": {"plants": ["向日葵"], "artifact": None},
+            "supplyPicks": [],
+            "boardEarly": [], "boardLate": [],
+            "onceSegs": [], "loopSegs": [], "endSegs": [],
+            "bossOnceSegs": [], "bossLoopSegs": [], "bossEndSegs": [],
+        }],
+    }
+    job = compile_jobset(raw, log=lambda m: None)
+    print("（用自包含夹具作业集：表1 boss 槽2=菜问 覆盖）")
     return job
 
 
 def simulate_overrides(boss_lv, lineup_changed, artifact_changed):
-    """驱动真实 runtime，收集一个 boss 关（boss_lv）开局前的全部 override。"""
+    """驱动真实 runtime，收集一个 boss 关开局前的全部 override。
+    boss_lv=None -> 自动挑「带 boss 差异阵容的表」覆盖的第一个 5 倍数关
+    （找不到差异表就退而求其次：任何 5 倍数关，供场景 D 用）。"""
     job = _load_test_job()
     dst = ROOT / "assets" / "resource" / "jobs" / "_sim_current.json"
     dst.write_text(json.dumps(job, ensure_ascii=False), encoding="utf-8")
     try:
+        if boss_lv is None:
+            # 两遍法：先 Load 拿表清单，挑出合适的 boss 关再重新 Load
+            rt._STATE.clear()
+            rt.JobSetLoad().run(Ctx(), Argv({"作业集代码": "_sim_current",
+                                              "起始关卡": 1, "重置": True}))
+            js0 = rt._STATE["jobset"]
+            pick = None
+            for want_diff in (True, False):   # 优先有差异的表
+                for t in js0.tables:
+                    lvs = sorted(t.raw.get("levels") or [])
+                    cand = next((l for l in lvs if l % 5 == 0 and l > 1), None)
+                    if cand is None:
+                        continue
+                    diff = t.lineup_sig(True) != t.lineup_sig(False)
+                    if diff == want_diff:
+                        pick = cand
+                        break
+                if pick:
+                    break
+            if pick is None:
+                raise SystemExit("当前作业集没有任何 5 倍数关 —— 没法跑 boss 场景")
+            boss_lv = pick
         rt._STATE.clear()
         rt.JobSetLoad().run(Ctx(), Argv({"作业集代码": "_sim_current",
                                           "起始关卡": boss_lv - 1, "重置": True}))
         js = rt._STATE["jobset"]
-        t2 = js.pick_table(boss_lv)  # 覆盖 boss_lv 的表（须带 boss 槽覆盖）
-        if t2.lineup_sig(True) == t2.lineup_sig(False):
-            raise SystemExit(
-                f"当前作业集在 L{boss_lv} 的表{t2.index + 1} 没有 boss 差异阵容"
-                "（boss 名单 == 普通名单）—— 换一个带 boss 槽位覆盖的作业集再跑")
+        t2 = js.pick_table(boss_lv)  # 覆盖 boss_lv 的表
+        print(f"  （模拟关卡 L{boss_lv}，表{t2.index + 1}，"
+              f"boss差异={'有' if t2.lineup_sig(True) != t2.lineup_sig(False) else '无'}）")
 
         # 摆状态：前一关普通阵容已生效
         rt._STATE["lineup_sig"] = t2.lineup_sig(False)
@@ -159,6 +204,10 @@ def simulate_overrides(boss_lv, lineup_changed, artifact_changed):
         rt._STATE["is_boss"] = False
         rt._STATE["is_boss_level"] = None
         rt._STATE["training"] = False
+
+        if lineup_changed and t2.lineup_sig(True) == t2.lineup_sig(False):
+            raise SystemExit("当前作业集没有任何 boss 差异阵容 —— 场景 A/B 无从模拟，"
+                             "先在编辑器里给某张表配个 boss 槽位覆盖再跑")
 
         if artifact_changed:
             # 临时给表2塞个 boss 神器（葫芦神器 + en），制造「神器也变」
@@ -193,16 +242,16 @@ def report(tag, entry, supply_screen, overrides, expect_bypass=False):
 total_bad = 0
 # A: 水皮场景（boss + 补给屏 + 阵容变 + 神器没变）
 total_bad += report("A boss关 阵容变+神器没变（水皮场景）", GATE_C, True,
-                    simulate_overrides(5, lineup_changed=True, artifact_changed=False))
+                    simulate_overrides(None, lineup_changed=True, artifact_changed=False))
 # B: boss + 阵容变 + 神器也变
 total_bad += report("B boss关 阵容变+神器也变", GATE_C, True,
-                    simulate_overrides(5, lineup_changed=True, artifact_changed=True))
+                    simulate_overrides(None, lineup_changed=True, artifact_changed=True))
 # C: 普通关（无补给屏）+ 阵容变
 total_bad += report("C 普通关 阵容变（无补给屏）", GATE_C, False,
-                    simulate_overrides(5, lineup_changed=True, artifact_changed=False))
+                    simulate_overrides(None, lineup_changed=True, artifact_changed=False))
 # D: boss + 阵容没变 + 神器没变（合法跳过 —— 走未变闸门）
 total_bad += report("D boss关 阵容没变（合法直跳，特性）", GATE_U, True,
-                    simulate_overrides(5, lineup_changed=False, artifact_changed=False),
+                    simulate_overrides(None, lineup_changed=False, artifact_changed=False),
                     expect_bypass=True)
 
 print("\n" + ("❌ 图级确认：存在绕过选卡的路径（见上）" if total_bad

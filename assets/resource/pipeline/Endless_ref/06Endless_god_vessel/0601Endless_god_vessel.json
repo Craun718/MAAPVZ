@@ -1,6 +1,6 @@
 {
     "无尽挑战_选取神器": {
-        "recognition": "OCR",
+        "recognition": "OCR", //会被覆盖（神器没变时改 DirectHit；换神器时按快照还原）
         "expected": [
             "神器",
             "神",
@@ -18,9 +18,10 @@
             -58,
             -21
         ],
-        "action": "Click",
-        "next": [
-            "无尽挑战_神器界面"
+        "action": "Click", //会被覆盖（同上）
+        "next": [ //会被覆盖（神器没变时改[清空卡牌]；还原以 runtime 快照为准——改这里要同步 agent/jobset/runtime.py 的 _ARTIFACT_PICK_ORIG，selfcheck §13 有断言）
+            "无尽挑战_神器界面",
+            "无尽挑战_选取神器"
         ]
     },
     "无尽挑战_神器界面": {
@@ -67,7 +68,7 @@
     },
     "无尽挑战_神器": {
         "recognition": "TemplateMatch",
-        "template": [],
+        "template": [], //会被覆盖（换神器时 runtime 注入当前神器模板路径；留空是设计）
         "roi": [
             260,
             148,
@@ -129,6 +130,6 @@
             89,
             80
         ],
-        "next": []
+        "next": [] //会被覆盖（runtime 按阵容是否变了写入：识别开始战斗 或 清空卡牌入口；pipe 留空即可）
     }
 }

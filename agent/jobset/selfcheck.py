@@ -548,15 +548,13 @@ try:
           str(sorted(_p_sq.keys())))
 
     # --- ★ 与真实 pipe 对照：新写法（custom 节点）逐项核对 ---
-    # ⚠️ pipe 文件是 **JSONC**（带 // 注释），标准 json 解析不了，先去掉注释。
+    # ⚠️ pipe 文件是 **JSONC**（带 // 注释，含行尾注释），标准 json 解析不了，
+    #    用 check_graph.strip_comments（字符串感知剥离器）。
+    from agent.jobset.check_graph import strip_comments as _strip_jsonc10
     _pipe10 = Path(__file__).resolve().parent.parent.parent / (
         "assets/resource/pipeline/Endless_ref/02_Endless_plant_Choose_ref.json"
     )
-    _raw10 = _pipe10.read_text(encoding="utf-8")
-    _raw10 = "\n".join(
-        ln for ln in _raw10.splitlines() if not ln.lstrip().startswith("//")
-    )
-    _pj10 = _json10.loads(_raw10)
+    _pj10 = _json10.loads(_strip_jsonc10(_pipe10.read_text(encoding="utf-8")))
     _node10 = _pj10[_rt10.NODE_SQUAD_PICK]
     check("pipe: 选择编队 是 Custom(SelectPlants)",
           _node10.get("action") == "Custom"
@@ -763,11 +761,9 @@ try:
     _root13 = Path(__file__).resolve().parent.parent.parent
 
     def _pipe_node13(rel, name):
+        from agent.jobset.check_graph import strip_comments as _strip13
         _p = _root13 / rel
-        _r = "\n".join(
-            ln for ln in _p.read_text(encoding="utf-8").splitlines()
-            if not ln.lstrip().startswith("//"))
-        return _json13.loads(_r)[name]
+        return _json13.loads(_strip13(_p.read_text(encoding="utf-8")))[name]
 
     _OWNED = {"recognition", "action", "next"}
     _cc_pipe = _pipe_node13(
@@ -1102,10 +1098,8 @@ try:
     _R18 = Path(__file__).resolve().parent.parent.parent
 
     def _jsonc18(p):
-        _raw = p.read_text(encoding="utf-8")
-        _raw = "\n".join(ln for ln in _raw.splitlines()
-                         if not ln.lstrip().startswith("//"))
-        return _json18.loads(_raw)
+        from agent.jobset.check_graph import strip_comments as _strip18
+        return _json18.loads(_strip18(p.read_text(encoding="utf-8")))
 
     # ---- pipe 节点静态 param 索引：node -> 静态 custom_action_param 键集 ----
     _pipe_static: dict = {}
