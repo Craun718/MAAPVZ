@@ -892,8 +892,14 @@ chain_dsl()        → click:...格子4_3 ×3 + swipe:...格子4_3 ×3，count=6
   签名相同 → `无尽挑战_识别开始战斗_清空卡牌` 改 `DirectHit + DoNothing`
   直跳 `无尽挑战_选取植物_开始战斗`（不清空、不选卡、不切编队）；
   不同 → 还原清空卡牌节点 + 正常注入。首次进关（签名 None）必走完整选卡。
-- **⚠️ `_CLEAR_CARDS_ORIG`（runtime.py）是清空卡牌节点 pipe 原值的照抄快照
-  —— 改 pipe 里这个节点必须同步它**（selfcheck §13 有一致性断言）。
+- **⚠️ 快照原则（2026-10-24 定稿）**：`_CLEAR_CARDS_ORIG` / `_ARTIFACT_PICK_ORIG`
+  等「还原用快照」**只收 runtime 自己会改的字段**（recognition/action/next）。
+  MAA override 按字段合并，没写的字段永远保持 pipe 现值 —— expected/roi/
+  target_offset 故意不收，pipe 改了也不会被还原顶掉（实锤过：pipe 给
+  「选取神器」expected 加单字兜底，全量快照恢复时把兜底顶掉）。
+  selfcheck §13 断言快照字段集 == {recognition, action, next} 且值与 pipe 一致。
+  （闸门 next 清单 `_JUMP_*_ORIG` / `_SUPPLY_CONFIRM_ORIG` 仍是全量照抄 ——
+  next 本来就是整表替换、runtime 全权负责，pipe 改了必须同步，同样有断言。）
 - **闸门阵容维度修正**（`lineup_gate_adjust`，纯函数）：表没变但形态阵容不同
   → 翻「变化」重选；表变了但阵容相同 → 翻「未变」跳过。训练模式不修正
   （每关必重选是用户设定）。boss 预判用计数器 `lv % 5 == 0`（与补给预告同口径）。

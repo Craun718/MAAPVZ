@@ -465,23 +465,22 @@ _JUMP_DIFF_ORIG = [NODE_SUPPLY, NODE_CLEAR_CARDS, NODE_DONE, JB_CONTINUE]
 _JUMP_SAME_ART = [NODE_SUPPLY, NODE_ARTIFACT_PICK, NODE_149, NODE_DONE, JB_CONTINUE]
 _JUMP_DIFF_ART = [NODE_SUPPLY, NODE_ARTIFACT_PICK, NODE_DONE, JB_CONTINUE]
 _SUPPLY_CONFIRM_ORIG = [NODE_BATTLE_START, NODE_SUPPLY_CONFIRM]
+# ★ 快照原则（2026-10-24 用户定稿）：只收录「runtime 自己会改、还原时必须
+#   写回」的字段 —— recognition / action / next。
+#   MAA override 是同节点按字段合并：没写进 override 的字段永远保持 pipe
+#   现值。expected/roi/target_offset 这类 runtime 从不动的字段【故意不收】，
+#   pipe 随便改都不会被恢复顶掉（旧版全量照抄，pipe 加了 OCR 单字兜底
+#   「神」「器」后被恢复成只剩「神器」，识别变脆 —— 实锤漂移）。
 _ARTIFACT_PICK_ORIG = {
     "recognition": "OCR",
-    "expected": ["神器"],
-    "roi": [815, 87, 79, 36],
-    "target_offset": [12, 69, -58, -21],
     "action": "Click",
     "next": ["无尽挑战_神器界面"],
 }
 
-# 「清空卡牌」节点 pipe 原值照抄（02_Endless_plant_Choose_ref.json）——
-# 阵容不变时 runtime 把它改成 DirectHit+DoNothing 直跳开始战斗（跳过清空/选卡/编队），
-# 阵容变了要还原成这套原值。
-# ⚠️ 改了 pipe 里这个节点的 recognition/roi/action/next，这里必须同步。
+# 「清空卡牌」同上：只收 runtime 会动的三个字段（阵容不变时 runtime 把它
+# 改成 DirectHit+DoNothing 直跳开始战斗，阵容变了按这套还原）。
 _CLEAR_CARDS_ORIG = {
     "recognition": "OCR",
-    "expected": ["清空卡牌"],
-    "roi": [22, 660, 75, 27],
     "action": "Click",
     "next": [NODE_CHOOSE_PLANTS],
 }

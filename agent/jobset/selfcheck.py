@@ -722,26 +722,47 @@ try:
           str(_t_art.lineup_sig(False)))
     check("神器占位: boss 未配置 -> 沿用", _t_art.eff_artifact(True) == "神器A")
 
-    # --- _CLEAR_CARDS_ORIG 必须与 pipe 原值一致（改了 pipe 要同步 runtime）---
-    _pipe13 = Path(__file__).resolve().parent.parent.parent / (
-        "assets/resource/pipeline/Endless_ref/02_Endless_plant_Choose_ref.json"
-    )
-    _raw13 = "\n".join(
-        ln for ln in _pipe13.read_text(encoding="utf-8").splitlines()
-        if not ln.lstrip().startswith("//")
-    )
-    _cc_pipe = _json13.loads(_raw13)[_rt13.NODE_CLEAR_CARDS]
+    # --- ★ 快照原则（2026-10-24 定稿）：快照只收 runtime 会动的字段 ---
+    #   MAA override 按字段合并，没写的字段永远保持 pipe 现值 ——
+    #   所以 expected/roi/target_offset 一律【不进】快照，pipe 改了也顶不掉。
+    #   断言两层：①快照字段集恰好是 runtime 会动的那几个（防有人又全量照抄）
+    #            ②这些字段的值与 pipe 一致（还原正确性）。
+    _root13 = Path(__file__).resolve().parent.parent.parent
+
+    def _pipe_node13(rel, name):
+        _p = _root13 / rel
+        _r = "\n".join(
+            ln for ln in _p.read_text(encoding="utf-8").splitlines()
+            if not ln.lstrip().startswith("//"))
+        return _json13.loads(_r)[name]
+
+    _OWNED = {"recognition", "action", "next"}
+    _cc_pipe = _pipe_node13(
+        "assets/resource/pipeline/Endless_ref/02_Endless_plant_Choose_ref.json",
+        _rt13.NODE_CLEAR_CARDS)
     _cc_orig = _rt13._CLEAR_CARDS_ORIG
-    check("跳过选卡: 清空卡牌快照 recognition 与 pipe 一致",
-          _cc_orig.get("recognition") == _cc_pipe.get("recognition"),
-          f"runtime={_cc_orig.get('recognition')} pipe={_cc_pipe.get('recognition')}")
-    check("跳过选卡: 清空卡牌快照 roi 与 pipe 一致",
-          _cc_orig.get("roi") == _cc_pipe.get("roi"),
-          f"runtime={_cc_orig.get('roi')} pipe={_cc_pipe.get('roi')}")
-    check("跳过选卡: 清空卡牌快照 action/next 与 pipe 一致",
-          _cc_orig.get("action") == _cc_pipe.get("action")
-          and _cc_orig.get("next") == _cc_pipe.get("next"),
-          f"runtime next={_cc_orig.get('next')} pipe next={_cc_pipe.get('next')}")
+    check("★快照原则: 清空卡牌快照只含 runtime 会动的字段",
+          set(_cc_orig.keys()) == _OWNED, f"keys={sorted(_cc_orig.keys())}")
+    check("★同步: 清空卡牌快照字段值与 pipe 一致",
+          all(_cc_orig[k] == _cc_pipe.get(k) for k in _OWNED),
+          f"runtime={_cc_orig} pipe={_cc_pipe}")
+
+    _ap_pipe = _pipe_node13(
+        "assets/resource/pipeline/Endless_ref/06Endless_god_vessel/0601Endless_god_vessel.json",
+        _rt13.NODE_ARTIFACT_PICK)
+    _ap_orig = _rt13._ARTIFACT_PICK_ORIG
+    check("★快照原则: 选取神器快照只含 runtime 会动的字段",
+          set(_ap_orig.keys()) == _OWNED, f"keys={sorted(_ap_orig.keys())}")
+    check("★同步: 选取神器快照字段值与 pipe 一致",
+          all(_ap_orig[k] == _ap_pipe.get(k) for k in _OWNED),
+          f"runtime={_ap_orig} pipe={_ap_pipe}")
+
+    _sc_pipe = _pipe_node13(
+        "assets/resource/pipeline/Endless_ref/04_Endless_Supply.json",
+        _rt13.NODE_SUPPLY_CONFIRM)
+    check("★同步: 补给确定快照 next 与 pipe 一致",
+          list(_rt13._SUPPLY_CONFIRM_ORIG) == _sc_pipe.get("next"),
+          f"runtime={_rt13._SUPPLY_CONFIRM_ORIG} pipe={_sc_pipe.get('next')}")
 
     # --- _inject_lineup 行为（假 Context 记录 override）---
     class _FakeCtx13:
