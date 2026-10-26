@@ -132,6 +132,9 @@ def _noop(*a, **k):
 # PlantMatch —— 自定义识别：在截图中找某植物模板（品质目录 + 多皮肤命中其一）
 # ===========================================================================
 
+# ⚠️ 待删（零引用）：pipe 侧「找某植物模板」的识别入口（品质目录+多皮肤命中其一）；
+#    新架构里 SelectPlants 已把识别全部内部化，注册后 pipe/agent 全库零引用。
+#    真需要 pipe 直接识别植物时再加回来。〔退役清单 2026-10-25〕
 @AgentServer.custom_recognition("PlantMatch")
 class PlantMatch(CustomRecognition):
     """在截图 ROI 内查找某个植物的卡槽模板。

@@ -95,6 +95,8 @@ def get_node_name_from_argv(argv):
     return None
 
 
+# ⚠️ 待删（旧逻辑）：纵向偏移点击（点不中按步进挪着点），碎片挑战在用；
+#    碎片挑战重构完后删除。替代：选卡→SelectPlants，种植→BatchSwipe。〔退役清单 2026-10-25〕
 @AgentServer.custom_action("OffsetClick_y")
 class OffsetClick(CustomAction):
     """原版：每次点击 x 增加 dx，每 max_hits 次后重置，重置时 y 减去 n，x 回到初始值+dx"""
@@ -168,6 +170,8 @@ class OffsetClick(CustomAction):
             return CustomAction.RunResult(success=False)
 
 
+# ⚠️ 待删（旧逻辑）：横向偏移点击，埃及刷金币在用；刷金币重构完后删除。
+#    替代：选卡→SelectPlants，种植→BatchSwipe。〔退役清单 2026-10-25〕
 @AgentServer.custom_action("OffsetClick_x")
 class OffsetClickSwapped(CustomAction):
     """
@@ -239,6 +243,8 @@ class OffsetClickSwapped(CustomAction):
         return CustomAction.RunResult(success=True)
 
     
+# ⚠️ 待删（零引用）：按节点名单清偏移，被 ResetAllOffsets 取代；
+#    pipe/task/interface 全库零引用，可直接删。〔退役清单 2026-10-25〕
 @AgentServer.custom_action("ResetOffset")
 class ResetOffset(CustomAction):
     """
@@ -275,6 +281,8 @@ class ResetOffset(CustomAction):
         return CustomAction.RunResult(success=True)
 
 
+# ⚠️ 待删（旧逻辑）：清 OffsetClick 系累计偏移，碎片挑战开局在用；
+#    随 OffsetClick_x/_y 一起退役。〔退役清单 2026-10-25〕
 @AgentServer.custom_action("ResetAllOffsets")
 class ResetAllOffsets(CustomAction):
     """
@@ -290,6 +298,8 @@ class ResetAllOffsets(CustomAction):
 
 
 # ---------- 点击并计数（已添加调试日志） ----------
+# ⚠️ 待删（功能已关停）：定向测序列已下架（小工具界面只剩「暂无工具」）；
+#    找图点击+按阶计数的整套测量件随功能一起删（含配套 pipe mini_tools/Detection_Order*.json）。〔退役清单 2026-10-25〕
 @AgentServer.custom_action("ClickAndCount")
 class ClickAndCount(CustomAction):
     def run(self, context: Context, argv: CustomAction.RunArg) -> CustomAction.RunResult:
@@ -420,6 +430,7 @@ class ClickAndCount(CustomAction):
         return CustomAction.RunResult(success=True)
 
 
+# ⚠️ 待删（功能已关停）：定向测序列的序数截图取证件，随功能一起删。〔退役清单 2026-10-25〕
 @AgentServer.custom_action("TakeCountScreenshot")
 class TakeCountScreenshot(CustomAction):
     # ...（未改动）
@@ -462,6 +473,7 @@ class TakeCountScreenshot(CustomAction):
         return CustomAction.RunResult(success=True)
 
 
+# ⚠️ 待删（功能已关停）：ClickAndCount 计数表的清表件（含轮次），随定向测序列一起删。〔退役清单 2026-10-25〕
 @AgentServer.custom_action("ResetPlantCount")
 class ResetPlantCount(CustomAction):
     def run(self, context: Context, argv: CustomAction.RunArg) -> CustomAction.RunResult:
@@ -471,6 +483,7 @@ class ResetPlantCount(CustomAction):
         return CustomAction.RunResult(success=True)
 
 
+# ⚠️ 待删（功能已关停）：ClickAndCount 计数表只清点击保轮次的件，随定向测序列一起删。〔退役清单 2026-10-25〕
 @AgentServer.custom_action("ResetCounts")
 class ResetCounts(CustomAction):
     def run(self, context: Context, argv: CustomAction.RunArg) -> CustomAction.RunResult:

@@ -1124,6 +1124,9 @@ try:
     _KNOWN_BAD18 = {
         ("get_gold_coins.json", "星系_进入世界.next"),        # 装备街机神器 vs 需要刷的关卡
         ("Secret_realm.json", "地宫2无尽_第一关_寻找8槽.template"),  # 藤蔓植物 vs 远程植物
+        # 渠道服 vs 应用宝_登录方式：级联 option（选了 tap 服就没有应用宝登录方式可选），
+        # 运行时互斥不会同时生效，静态扫描感知不到 → 豁免（2026-10-25 用户确认）
+        ("Start_game.json", "打开pvz_识别登录.next"),
     }
     _bad_all: list = []
     _lost_all: list = []
